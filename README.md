@@ -3,6 +3,8 @@
 Interactive visualizations of hyperbolic machine learning — drag points on the
 Poincaré disk and watch the Lorentz hyperboloid respond in real time.
 
+**[Live gallery →](https://tenglon.github.io/hypviz/)**
+
 Every scene compiles to a **self-contained HTML page** (offline-friendly, ~550 KB):
 save it, email it, embed it in a course site. The same scene exports
 **publication-grade vector SVG/PDF**, including configurations you arranged by
@@ -11,6 +13,7 @@ hand in the browser.
 ## Quickstart
 
 ```bash
+git clone git@github.com:Tenglon/hypviz.git && cd hypviz
 pip install -e .
 python examples/build_gallery.py    # -> examples/out/*.html, open in a browser
 ```
