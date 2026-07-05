@@ -12,7 +12,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { CHARTS } from "../kernel/charts";
 import * as L from "../kernel/lorentz";
 import { Vec } from "../kernel/lorentz";
-import { ChartKey, Derived, SceneJSON, SceneState } from "./state";
+import { ChartKey, Derived, LegendEntry, SceneJSON, SceneState } from "./state";
 
 const S = 8;              // absolute spatial half-width of the 3D window
 const BALL_EDGE = 0.995;  // chart-coord clamp (keeps the ball formulas in domain)
@@ -412,6 +412,27 @@ export function mount(root: HTMLElement, scene: SceneJSON) {
     });
     bar.append("curvature ", input, readout);
   }
+  // legend: scene-specific entries + the standard geometry, identity never color-alone
+  const legend = document.createElement("div");
+  legend.className = "hyplegend";
+  const entries: LegendEntry[] = [...(scene.legend ?? []),
+    { kind: "line", color: COLORS.grid, label: "distance grid (0.5 apart)" },
+    { kind: "circle", color: COLORS.rim, label: "3D-window edge" },
+    { kind: "circle", color: COLORS.boundary, label: "ideal boundary (∞)" }];
+  for (const { kind, color, label } of entries) {
+    const item = document.createElement("span");
+    item.className = "item";
+    const sw = document.createElement("span");
+    sw.className = `sw sw-${kind}`;
+    if (kind === "arrow") { sw.textContent = "⟶"; sw.style.color = color; }
+    else if (kind === "area") { sw.style.background = color + "2e"; sw.style.borderColor = color; }
+    else if (kind === "circle") sw.style.borderColor = color;
+    else sw.style.background = color;
+    item.append(sw, label);
+    legend.appendChild(item);
+  }
+  root.before(legend);
+
   const btn = document.createElement("button");
   btn.textContent = "download state";
   btn.title = "Save the current arrangement as JSON — reproduce it in Python via Scene.to_svg(..., state=...)";

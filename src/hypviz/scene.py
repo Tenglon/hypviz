@@ -108,15 +108,18 @@ _DEFAULT_HINT = ("Drag the highlighted points — in either view; the 3D view or
 
 
 class Scene:
-    def __init__(self, objects, views=("poincare", "lorentz"), curvature=-1.0, curvature_slider=False, hint=None):
+    def __init__(self, objects, views=("poincare", "lorentz"), curvature=-1.0, curvature_slider=False,
+                 hint=None, legend=()):
         self.objects, self.views = list(objects), list(views)
         self.curvature, self.curvature_slider = curvature, curvature_slider
         self.hint = hint or _DEFAULT_HINT
+        self.legend = [{"kind": k, "color": c, "label": l} for k, c, l in legend]  # (kind, color, label)
 
     def to_json(self):
         return {"views": [{"chart": v} for v in self.views],
                 "objects": [o.to_json(self.curvature) for o in self.objects],
-                "curvature": self.curvature, "curvatureSlider": self.curvature_slider}
+                "curvature": self.curvature, "curvatureSlider": self.curvature_slider,
+                "legend": self.legend}
 
     def to_html(self, path, title="hypviz"):
         html = ((_STATIC / "template.html").read_text()

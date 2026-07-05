@@ -14,7 +14,8 @@ export type TangentPlaneJSON = { id: string; type: "tangent_plane"; at: string }
 export type MetricCircleJSON = { id: string; type: "metric_circle"; at: string; radius: number; color?: string };
 export type ObjJSON = PointJSON | GeodesicJSON | DistanceLabelJSON | LogVectorJSON | MobiusSumJSON | TangentPlaneJSON | MetricCircleJSON;
 export type ChartKey = "poincare" | "klein" | "halfplane" | "hemisphere" | "lorentz";
-export type SceneJSON = { views: { chart: ChartKey }[]; objects: ObjJSON[]; curvature?: number; curvatureSlider?: boolean };
+export type LegendEntry = { kind: "line" | "arrow" | "point" | "circle" | "area"; color: string; label: string };
+export type SceneJSON = { views: { chart: ChartKey }[]; objects: ObjJSON[]; curvature?: number; curvatureSlider?: boolean; legend?: LegendEntry[] };
 
 /** Everything a view needs to draw, all in Lorentz hub coordinates. */
 export interface Derived {

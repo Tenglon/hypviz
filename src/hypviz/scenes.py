@@ -4,14 +4,16 @@ from .scene import DistanceLabel, Geodesic, LogVector, MetricCircle, MobiusSum, 
 
 # paper palette (dataviz categorical slots)
 BLUE, AQUA, YELLOW, VIOLET = "#2a78d6", "#1baf7a", "#eda100", "#4a3aa7"
-MUTED = "#898781"
+MUTED, INK = "#898781", "#52514e"
 
 
 def geodesic():
     """Scene 1 — geodesics & distance."""
     a = Point([0.45, 0.10], draggable=True, label="a", color=BLUE)
     b = Point([-0.30, 0.45], draggable=True, label="b", color=AQUA)
-    return Scene([a, b, Geodesic(a, b), DistanceLabel(a, b)], curvature_slider=True)
+    return Scene([a, b, Geodesic(a, b), DistanceLabel(a, b)], curvature_slider=True,
+                 legend=[("point", BLUE, "a, b — draggable points"),
+                         ("line", INK, "geodesic a ↔ b (shortest path)")])
 
 
 def models():
@@ -24,6 +26,8 @@ def models():
         [a, b, c, Geodesic(a, b), Geodesic(b, c), Geodesic(c, a)],
         views=("poincare", "klein", "halfplane", "lorentz"),
         curvature_slider=True,
+        legend=[("point", BLUE, "a, b, c — draggable vertices"),
+                ("line", INK, "geodesic triangle edges — one triangle, four charts")],
         hint=("The SAME triangle rendered in four models of H² — drag any vertex in any view. "
               "Klein draws geodesics as straight chords (but distorts angles); Poincaré keeps angles "
               "true (but bends geodesics into arcs); the hyperboloid is the model everything else projects from. "
@@ -43,6 +47,10 @@ def exp_log():
          MetricCircle(x, radius=0.35, color=VIOLET), DistanceLabel(x, y)],
         views=("poincare", "hemisphere", "lorentz"),
         curvature_slider=True,
+        legend=[("arrow", VIOLET, "v = log_x(y) — tangent vector at x"),
+                ("circle", VIOLET, "metric circle — fixed ruler in T_x"),
+                ("area", VIOLET, "tangent plane at x (3D views)"),
+                ("line", INK, "geodesic exp_x(t·v)")],
         hint=("The violet arrow is the tangent vector v = log_x(y): the 'straight-line instruction' that "
               "exp_x turns into a geodesic; its length equals d(x, y). The hemisphere is the Poincaré disk "
               "lifted into 3D — there (and on the hyperboloid) the tangent plane at x is a real tilted plane. "
@@ -64,6 +72,9 @@ def mobius_add():
          Geodesic(a, ab, color=YELLOW), Geodesic(b, ba, color=VIOLET),
          DistanceLabel(ab, ba)],
         curvature_slider=True,
+        legend=[("line", BLUE, "o → a"), ("line", AQUA, "o → b"),
+                ("line", YELLOW, "a → a⊕b  (b translated by a)"),
+                ("line", VIOLET, "b → b⊕a  (a translated by b)")],
         hint=("Möbius addition a⊕b: translate b by a (yellow), against b⊕a (violet) — in hyperbolic "
               "space they do NOT coincide; the label shows their distance, the failure of commutativity. "
               "Drag a and b; watch the gap close as a, b approach the origin or K approaches 0."),

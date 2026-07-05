@@ -118,6 +118,20 @@ def to_figure(scene, view="poincare", state=None, size=5.5):
             if o.label:
                 ax.annotate(o.label, p, textcoords="offset points", xytext=(0, 9),
                             ha="center", fontsize=10, color=COLORS["ink"], zorder=6)
+
+    # legend: scene entries (sans 3D-only areas) + the standard geometry
+    from matplotlib.lines import Line2D
+    entries = [e for e in scene.legend if e["kind"] != "area"] + [
+        {"kind": "line", "color": COLORS["grid"], "label": "distance grid (0.5 apart)"},
+        {"kind": "circle", "color": COLORS["rim"], "label": "3D-window edge"},
+        {"kind": "circle", "color": COLORS["boundary"], "label": "ideal boundary (∞)"}]
+    swatch = {"line": {"lw": 1.6}, "arrow": {"lw": 1.6, "marker": ">", "ms": 5, "markevery": [-1]},
+              "point": {"ls": "none", "marker": "o", "ms": 7},
+              "circle": {"ls": "none", "marker": "o", "ms": 8, "mfc": "none", "mew": 1.6}}
+    handles = [Line2D([0, 1], [0, 0], color=e["color"], **swatch[e["kind"]]) for e in entries]
+    ax.legend(handles, [e["label"] for e in entries], loc="lower left", fontsize=7.5, ncols=2,
+              bbox_to_anchor=(0, 1.01, 1, 0.1), frameon=False, borderaxespad=0,
+              handlelength=1.6, labelcolor=COLORS["ink"])
     return fig
 
 
