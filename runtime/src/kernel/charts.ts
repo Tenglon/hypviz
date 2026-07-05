@@ -1,6 +1,7 @@
-/** Coordinate charts on H^n — mirror of src/hypviz/kernel/charts.py. */
+/** Coordinate charts on H^n, curvature K < 0 — mirror of src/hypviz/kernel/charts.py. */
 import { Vec } from "./lorentz";
 
+const R = (k: number) => 1 / Math.sqrt(-k);
 const sq = (p: Vec) => p.reduce((s, v) => s + v * v, 0);
 
 /** Complex division (a / b) on [re, im] pairs. */
@@ -11,36 +12,39 @@ const cdiv = ([ar, ai]: Vec, [br, bi]: Vec): Vec => {
 
 export const Poincare = {
   name: "poincare" as const,
-  toLorentz(p: Vec): Vec {
-    const d = 1 - sq(p);
-    return [(1 + sq(p)) / d, ...p.map((v) => (2 * v) / d)];
+  toLorentz(p: Vec, k = -1): Vec {
+    const r = R(k), d = r * r - sq(p);
+    return [(r * (r * r + sq(p))) / d, ...p.map((v) => (2 * r * r * v) / d)];
   },
-  fromLorentz(x: Vec): Vec {
-    return x.slice(1).map((v) => v / (1 + x[0]));
+  fromLorentz(x: Vec, k = -1): Vec {
+    const r = R(k);
+    return x.slice(1).map((v) => (r * v) / (r + x[0]));
   },
 };
 
 export const Klein = {
   name: "klein" as const,
-  toLorentz(k: Vec): Vec {
-    const g = 1 / Math.sqrt(1 - sq(k));
-    return [g, ...k.map((v) => g * v)];
+  toLorentz(p: Vec, k = -1): Vec {
+    const r = R(k), g = 1 / Math.sqrt(1 - sq(p) / (r * r));
+    return [g * r, ...p.map((v) => g * v)];
   },
-  fromLorentz(x: Vec): Vec {
-    return x.slice(1).map((v) => v / x[0]);
+  fromLorentz(x: Vec, k = -1): Vec {
+    return x.slice(1).map((v) => (R(k) * v) / x[0]);
   },
 };
 
 export const HalfPlane = {
   name: "halfplane" as const,
-  toLorentz(w: Vec): Vec {
-    const z = cdiv([w[0], w[1] - 1], [w[0], w[1] + 1]); // z = (w-i)/(w+i)
-    return Poincare.toLorentz(z);
+  toLorentz(w: Vec, k = -1): Vec {
+    const r = R(k);
+    const z = cdiv([w[0] / r, w[1] / r - 1], [w[0] / r, w[1] / r + 1]); // z = (w/R-i)/(w/R+i)
+    return Poincare.toLorentz([r * z[0], r * z[1]], k);
   },
-  fromLorentz(x: Vec): Vec {
-    const [zr, zi] = Poincare.fromLorentz(x);
+  fromLorentz(x: Vec, k = -1): Vec {
+    const r = R(k);
+    const [zr, zi] = Poincare.fromLorentz(x, k).map((v) => v / r);
     const [qr, qi] = cdiv([1 + zr, zi], [1 - zr, -zi]); // (1+z)/(1-z)
-    return [-qi, qr]; // w = i * q
+    return [-r * qi, r * qr]; // w = R * i * q
   },
 };
 
