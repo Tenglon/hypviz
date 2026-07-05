@@ -13,13 +13,13 @@ import { CHARTS } from "../kernel/charts";
 import { Vec } from "../kernel/lorentz";
 import { ChartKey, Derived, SceneJSON, SceneState } from "./state";
 
-const S = 6;              // absolute spatial half-width of the 3D window
+const S = 8;              // absolute spatial half-width of the 3D window
 const BALL_EDGE = 0.995;  // chart-coord clamp (keeps the ball formulas in domain)
 
 // paper palette (validated: dataviz slots 1+2 on light surface #fcfcfb)
 const COLORS = {
-  point: "#2a78d6", curve: "#52514e", grid: "#dddcd4", boundary: "#898781",
-  surface: "#9ec5f4", bg: "#fcfcfb",
+  point: "#2a78d6", curve: "#52514e", grid: "#dddcd4", gridFaint: "#edece5",
+  rim: "#a9a79e", boundary: "#898781", surface: "#9ec5f4", bg: "#fcfcfb",
 };
 
 const FRAME: Record<string, { c: [number, number]; hh: number }> = {
@@ -28,19 +28,23 @@ const FRAME: Record<string, { c: [number, number]; hh: number }> = {
   halfplane: { c: [0, 2.1], hh: 2.5 },
 };
 
-/** Polar geodesic grid in Lorentz hub coords: rays from the origin + circles
- * at absolute hyperbolic distances (0.5, 1, ...) — under a curvature change
- * the disk stays put on screen and the circles migrate: that IS the lesson. */
-const gridCurves = (k: number, dmax: number): Vec[][] => {
+/** Polar geodesic grid in Lorentz hub coords: circles at absolute hyperbolic
+ * distances (0.5, 1, ...) and rays — under a curvature change the disk stays
+ * put on screen and the circles migrate: that IS the lesson. */
+const polar = (k: number, d: number, th: number): Vec => {
   const R = 1 / Math.sqrt(-k);
-  const pt = (d: number, th: number): Vec =>
-    [R * Math.cosh(d / R), R * Math.sinh(d / R) * Math.cos(th), R * Math.sinh(d / R) * Math.sin(th)];
-  const curves: Vec[][] = [];
-  for (let j = 0; j < 12; j++)
-    curves.push(Array.from({ length: 49 }, (_, i) => pt((dmax * i) / 48, (j * Math.PI) / 6)));
-  for (let d = 0.5; d <= dmax + 1e-9; d += 0.5)
-    curves.push(Array.from({ length: 97 }, (_, i) => pt(d, (2 * Math.PI * i) / 96)));
-  return curves;
+  return [R * Math.cosh(d / R), R * Math.sinh(d / R) * Math.cos(th), R * Math.sinh(d / R) * Math.sin(th)];
+};
+const ring = (k: number, d: number): Vec[] =>
+  Array.from({ length: 97 }, (_, i) => polar(k, d, (2 * Math.PI * i) / 96));
+const ray = (k: number, th: number, d0: number, d1: number): Vec[] =>
+  Array.from({ length: 33 }, (_, i) => polar(k, d0 + ((d1 - d0) * i) / 32, th));
+const THETAS = Array.from({ length: 12 }, (_, j) => (j * Math.PI) / 6);
+
+/** The shared interactive domain: the geodesic ball the 3D window can show. */
+const domain = (k: number) => {
+  const R = 1 / Math.sqrt(-k);
+  return R * Math.asinh(S / R);
 };
 
 export class HypView {
@@ -73,9 +77,9 @@ export class HypView {
     if (chart === "lorentz") {
       this.camera = new THREE.PerspectiveCamera(45, 1, 0.1, 200);
       this.camera.up.set(0, 0, 1);
-      this.camera.position.set(7.5, -11, 8); // fixed in absolute coords — curvature must be visible
+      this.camera.position.set(9.5, -14, 10); // fixed in absolute coords — curvature must be visible
       this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-      this.controls.target.set(0, 0, 1.6);
+      this.controls.target.set(0, 0, 2);
       this.controls.enableDamping = true;
     } else {
       this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
@@ -100,23 +104,29 @@ export class HypView {
     return new THREE.Vector3(p[0], p[1], 0);
   }
 
-  /** Rebuild all curvature-dependent statics and reframe 2D cameras. */
+  /** Rebuild all curvature-dependent statics and reframe 2D cameras.
+   * Both views draw the SAME grid over the shared domain, plus the domain rim
+   * ring — the two views stay in visual lockstep out to that ring. */
   setCurvature(k: number) {
     if (k === this.kNow) return;
     this.kNow = k;
-    const R = this.R;
+    const R = this.R, D = domain(k);
     this.statics.clear();
     this.surface = undefined;
     if (this.chart === "lorentz") {
       this.surface = this.makeSurface();
       this.statics.add(this.surface);
-      this.statics.add(...gridCurves(k, R * Math.asinh(S / R)).map((pts) => this.curve(pts, COLORS.grid)));
     } else {
       this.addFillAndBoundary();
-      // rays reach chart radius tanh(3) R = 0.995 R — visually touching the rim
-      this.statics.add(...gridCurves(k, 6 * R).map((pts) => this.curve(pts, COLORS.grid)));
+      // context beyond the 3D window: faint grid out to 0.995 R (the space goes on)
+      for (const th of THETAS) this.statics.add(this.curve(ray(k, th, D, 6 * R), COLORS.gridFaint));
+      for (let d = Math.ceil(D / 0.5) * 0.5; d <= 6 * R + 1e-9; d += 0.5)
+        this.statics.add(this.curve(ring(k, d), COLORS.gridFaint));
       this.resize();
     }
+    for (const th of THETAS) this.statics.add(this.curve(ray(k, th, 0, D), COLORS.grid));
+    for (let d = 0.5; d < D; d += 0.5) this.statics.add(this.curve(ring(k, d), COLORS.grid));
+    this.statics.add(this.curve(ring(k, D), COLORS.rim)); // the shared window edge
   }
 
   private makeSurface(): THREE.Mesh {
@@ -273,8 +283,10 @@ export class HypView {
       spatial = [x[1], x[2]];
     }
     if (!spatial) return;
-    const n = Math.hypot(spatial[0], spatial[1]); // keep inside the 3D window so views stay consistent
-    if (n > 0.98 * S) spatial = [(spatial[0] * 0.98 * S) / n, (spatial[1] * 0.98 * S) / n];
+    // clamp to the shared domain: both views stop at the same hyperbolic point
+    const R = this.R, lim = R * Math.sinh((0.99 * domain(this.kNow)) / R);
+    const n = Math.hypot(spatial[0], spatial[1]);
+    if (n > lim) spatial = [(spatial[0] * lim) / n, (spatial[1] * lim) / n];
     this.state.movePoint(this.dragId, spatial);
   }
 
