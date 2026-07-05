@@ -53,10 +53,50 @@ class DistanceLabel(_Obj):
         return {"id": self.id, "type": "distance_label", "from": self.a.id, "to": self.b.id}
 
 
+class LogVector(_Obj):
+    """The tangent vector log_base(to), drawn as a straight arrow at `base`."""
+
+    def __init__(self, base, to, color=None):
+        super().__init__()
+        self.base, self.to, self.color = base, to, color
+
+    def to_json(self, k):
+        return {"id": self.id, "type": "log_vector", "base": self.base.id, "to": self.to.id, "color": self.color}
+
+
+class MobiusSum(_Obj):
+    """The derived point a (+) b (Mobius addition); usable wherever a Point is."""
+
+    def __init__(self, a, b, label=None, color=None):
+        super().__init__()
+        self.a, self.b, self.label, self.color = a, b, label, color
+
+    def to_json(self, k):
+        return {"id": self.id, "type": "mobius_sum", "a": self.a.id, "b": self.b.id,
+                "label": self.label, "color": self.color}
+
+
+class TangentPlane(_Obj):
+    """A translucent patch of the tangent plane at a point (3D view only)."""
+
+    def __init__(self, at):
+        super().__init__()
+        self.at = at
+
+    def to_json(self, k):
+        return {"id": self.id, "type": "tangent_plane", "at": self.at.id}
+
+
+_DEFAULT_HINT = ("Drag the highlighted points — in either view; the 3D view orbits and zooms with the mouse. "
+                 "The gray ring marks the edge of the 3D window: the disk beyond it (faint grid) continues to "
+                 "infinity, which no isometric embedding can show — dragging stops at the ring in both views.")
+
+
 class Scene:
-    def __init__(self, objects, views=("poincare", "lorentz"), curvature=-1.0, curvature_slider=False):
+    def __init__(self, objects, views=("poincare", "lorentz"), curvature=-1.0, curvature_slider=False, hint=None):
         self.objects, self.views = list(objects), list(views)
         self.curvature, self.curvature_slider = curvature, curvature_slider
+        self.hint = hint or _DEFAULT_HINT
 
     def to_json(self):
         return {"views": [{"chart": v} for v in self.views],
@@ -66,6 +106,7 @@ class Scene:
     def to_html(self, path, title="hypviz"):
         html = ((_STATIC / "template.html").read_text()
                 .replace("/*TITLE*/", title)
+                .replace("/*HINT*/", self.hint)
                 .replace("/*RUNTIME*/", (_STATIC / "hypviz-runtime.js").read_text())
                 .replace("/*SCENE*/", json.dumps(self.to_json())))
         path = Path(path)

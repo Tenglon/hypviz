@@ -1,12 +1,17 @@
 /** Scene JSON schema + reactive state. Scenes are tiny (tens of objects),
  * so "reactivity" is simply: recompute every derived object on any change. */
+import { Poincare } from "../kernel/charts";
 import * as L from "../kernel/lorentz";
 import { Vec } from "../kernel/lorentz";
+import * as M from "../kernel/mobius";
 
 export type PointJSON = { id: string; type: "point"; spatial: number[]; draggable?: boolean; label?: string; color?: string };
 export type GeodesicJSON = { id: string; type: "geodesic"; from: string; to: string; color?: string };
 export type DistanceLabelJSON = { id: string; type: "distance_label"; from: string; to: string };
-export type ObjJSON = PointJSON | GeodesicJSON | DistanceLabelJSON;
+export type LogVectorJSON = { id: string; type: "log_vector"; base: string; to: string; color?: string };
+export type MobiusSumJSON = { id: string; type: "mobius_sum"; a: string; b: string; label?: string; color?: string };
+export type TangentPlaneJSON = { id: string; type: "tangent_plane"; at: string };
+export type ObjJSON = PointJSON | GeodesicJSON | DistanceLabelJSON | LogVectorJSON | MobiusSumJSON | TangentPlaneJSON;
 export type ChartKey = "poincare" | "klein" | "halfplane" | "lorentz";
 export type SceneJSON = { views: { chart: ChartKey }[]; objects: ObjJSON[]; curvature?: number; curvatureSlider?: boolean };
 
@@ -15,6 +20,8 @@ export interface Derived {
   points: Map<string, { x: Vec; spec: PointJSON }>;
   curves: Map<string, { pts: Vec[]; color?: string }>;
   labels: Map<string, { at: Vec; text: string }>;
+  arrows: Map<string, { at: Vec; v: Vec; color?: string }>;
+  planes: Map<string, { at: Vec }>;
 }
 
 export const sample = (x: Vec, y: Vec, k: number, n = 64): Vec[] =>
@@ -47,14 +54,30 @@ export class SceneState {
   }
 
   derive(): Derived {
-    const k = this.k;
-    const P = (id: string) => L.fromSpatial(this.spatial.get(id)!, k);
-    const d: Derived = { points: new Map(), curves: new Map(), labels: new Map() };
-    for (const o of this.scene.objects) {
-      if (o.type === "point") d.points.set(o.id, { x: P(o.id), spec: o });
-      else if (o.type === "geodesic") d.curves.set(o.id, { pts: sample(P(o.from), P(o.to), k), color: o.color });
+    const k = this.k, objs = this.scene.objects;
+    // pass 1: resolve every object that IS a point to its Lorentz position
+    const pos = new Map<string, Vec>();
+    for (const o of objs) if (o.type === "point") pos.set(o.id, L.fromSpatial(this.spatial.get(o.id)!, k));
+    for (const o of objs)
+      if (o.type === "mobius_sum") {
+        const pa = Poincare.fromLorentz(pos.get(o.a)!, k), pb = Poincare.fromLorentz(pos.get(o.b)!, k);
+        pos.set(o.id, Poincare.toLorentz(M.add(pa, pb, k), k));
+      }
+    // pass 2: build the drawables
+    const d: Derived = { points: new Map(), curves: new Map(), labels: new Map(), arrows: new Map(), planes: new Map() };
+    for (const o of objs) {
+      if (o.type === "point") d.points.set(o.id, { x: pos.get(o.id)!, spec: o });
+      else if (o.type === "mobius_sum")
+        d.points.set(o.id, { x: pos.get(o.id)!, spec: { id: o.id, type: "point", spatial: [], label: o.label, color: o.color } });
+      else if (o.type === "geodesic") d.curves.set(o.id, { pts: sample(pos.get(o.from)!, pos.get(o.to)!, k), color: o.color });
+      else if (o.type === "log_vector")
+        d.arrows.set(o.id, { at: pos.get(o.base)!, v: L.logmap(pos.get(o.base)!, pos.get(o.to)!, k), color: o.color });
+      else if (o.type === "tangent_plane") d.planes.set(o.id, { at: pos.get(o.at)! });
       else if (o.type === "distance_label")
-        d.labels.set(o.id, { at: L.geodesic(P(o.from), P(o.to), 0.5, k), text: `d = ${L.dist(P(o.from), P(o.to), k).toFixed(3)}` });
+        d.labels.set(o.id, {
+          at: L.geodesic(pos.get(o.from)!, pos.get(o.to)!, 0.5, k),
+          text: `d = ${L.dist(pos.get(o.from)!, pos.get(o.to)!, k).toFixed(3)}`,
+        });
     }
     return d;
   }

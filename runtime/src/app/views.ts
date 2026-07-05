@@ -10,6 +10,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { CHARTS } from "../kernel/charts";
+import * as L from "../kernel/lorentz";
 import { Vec } from "../kernel/lorentz";
 import { ChartKey, Derived, SceneJSON, SceneState } from "./state";
 
@@ -25,7 +26,7 @@ const COLORS = {
 const FRAME: Record<string, { c: [number, number]; hh: number }> = {
   poincare: { c: [0, 0], hh: 1.08 },
   klein: { c: [0, 0], hh: 1.08 },
-  halfplane: { c: [0, 2.1], hh: 2.5 },
+  halfplane: { c: [0, 1.35], hh: 1.55 },
 };
 
 /** Polar geodesic grid in Lorentz hub coords: circles at absolute hyperbolic
@@ -58,6 +59,8 @@ export class HypView {
   kNow = NaN;
   spheres = new Map<string, THREE.Mesh>();
   lines = new Map<string, THREE.Line>();
+  arrows = new Map<string, { line: THREE.Line; cone: THREE.Mesh }>();
+  planes = new Map<string, THREE.Mesh>();
   labels = new Map<string, { div: HTMLElement; world: THREE.Vector3 }>();
   raycaster = new THREE.Raycaster();
   dragId: string | null = null;
@@ -102,6 +105,12 @@ export class HypView {
     if (this.chart === "lorentz") return new THREE.Vector3(x[1], x[2], x[0] - this.R);
     const p = CHARTS[this.chart].fromLorentz(x, this.kNow);
     return new THREE.Vector3(p[0], p[1], 0);
+  }
+
+  /** Differential of `project` at x: tangent vector v -> view-space vector. */
+  pushforward(x: Vec, v: Vec): THREE.Vector3 {
+    const e = 1e-4;
+    return this.project(L.expmap(x, L.scale(e, v), this.kNow)).sub(this.project(x)).divideScalar(e);
   }
 
   /** Rebuild all curvature-dependent statics and reframe 2D cameras.
@@ -213,6 +222,44 @@ export class HypView {
       }
       line.geometry.setFromPoints(pts.map((p) => this.project(p)));
     }
+    for (const [id, { at, v, color }] of d.arrows) {
+      let ar = this.arrows.get(id);
+      if (!ar) {
+        const mat = new THREE.MeshBasicMaterial({ color: color ?? COLORS.curve });
+        ar = {
+          line: new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: color ?? COLORS.curve })),
+          cone: new THREE.Mesh(new THREE.ConeGeometry(0.36, 1, 12), mat),
+        };
+        this.scene3.add(ar.line, ar.cone);
+        this.arrows.set(id, ar);
+      }
+      const p0 = this.project(at), dir = this.pushforward(at, v), tip = p0.clone().add(dir);
+      const hs = this.chart === "lorentz" ? 0.28 : FRAME[this.chart].hh * this.R * 0.07;
+      ar.line.geometry.setFromPoints([p0, tip]);
+      ar.cone.scale.setScalar(hs);
+      ar.cone.position.copy(tip).addScaledVector(dir.clone().normalize(), -hs / 2);
+      ar.cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
+    }
+    for (const [id, { at }] of d.planes) {
+      if (this.chart !== "lorentz") continue; // in a 2D chart the tangent plane IS the picture plane
+      let mesh = this.planes.get(id);
+      if (!mesh) {
+        mesh = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({
+          color: "#4a3aa7", transparent: true, opacity: 0.10, side: THREE.DoubleSide, depthWrite: false,
+        }));
+        this.scene3.add(mesh);
+        this.planes.set(id, mesh);
+      }
+      // Minkowski-orthonormal tangent basis at x, pushed to view space
+      const nrm = (u: Vec) => L.scale(1 / Math.sqrt(L.mdot(u, u)), u);
+      const e1 = nrm(L.toTangent(at, [0, 1, 0], this.kNow));
+      const raw = L.toTangent(at, [0, 0, 1], this.kNow);
+      const e2 = nrm(L.add(raw, L.scale(-L.mdot(e1, raw), e1)));
+      const p0 = this.project(at), sz = 1.4;
+      const u1 = this.pushforward(at, e1).setLength(sz), u2 = this.pushforward(at, e2).setLength(sz);
+      const c = (s1: number, s2: number) => p0.clone().addScaledVector(u1, s1).addScaledVector(u2, s2);
+      mesh.geometry.setFromPoints([c(-1, -1), c(1, -1), c(1, 1), c(-1, -1), c(1, 1), c(-1, 1)]);
+    }
     for (const [id, { at, text }] of d.labels) {
       const l = this.ensureLabel(id);
       l.div.textContent = text;
@@ -237,11 +284,12 @@ export class HypView {
     if (this.camera instanceof THREE.PerspectiveCamera) {
       this.camera.aspect = w / h;
     } else if (this.camera instanceof THREE.OrthographicCamera) {
+      // frustum bounds are RELATIVE to the camera position: center via position, keep bounds symmetric
       const { hh, c } = FRAME[this.chart], R = this.R;
-      this.camera.left = c[0] * R - (hh * R * w) / h;
-      this.camera.right = c[0] * R + (hh * R * w) / h;
-      this.camera.top = (c[1] + hh) * R;
-      this.camera.bottom = (c[1] - hh) * R;
+      this.camera.left = (-hh * R * w) / h;
+      this.camera.right = (hh * R * w) / h;
+      this.camera.top = hh * R;
+      this.camera.bottom = -hh * R;
       this.camera.position.set(c[0] * R, c[1] * R, 5);
     }
     (this.camera as THREE.PerspectiveCamera).updateProjectionMatrix();
@@ -314,6 +362,7 @@ export function mount(root: HTMLElement, scene: SceneJSON) {
   }
   const views = scene.views.map((v) => new HypView(root, v.chart, state));
   views.forEach((v) => v.resize()); // re-measure: flex widths settle only once all views exist
+  (window as unknown as { __hypviz: object }).__hypviz = { state, views }; // console/debug access
   const rerender = () => {
     const d = state.derive();
     views.forEach((v) => v.update(d));

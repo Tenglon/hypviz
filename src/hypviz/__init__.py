@@ -1,5 +1,5 @@
 """hypviz — interactive visualizations of hyperbolic machine learning."""
-from . import kernel
-from .scene import DistanceLabel, Geodesic, Point, Scene
+from . import kernel, scenes
+from .scene import DistanceLabel, Geodesic, LogVector, MobiusSum, Point, Scene, TangentPlane
 
 __version__ = "0.0.1"
