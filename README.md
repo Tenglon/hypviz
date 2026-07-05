@@ -80,6 +80,7 @@ v2 (requirements in `docs/v2-viz-survey.md`, a verified survey of visualization
 practice in 2021–2026 hyperbolic ML papers): embedding scatter/`PointCloud` at
 scale, tree embeddings with geodesic edges, gyroplane decision boundaries,
 entailment cones, HoroPCA/CO-SNE projection adapters, norm histograms, parallel
-transport scene.
+transport scene, and a true **H³ Poincaré-ball 3D view** (the kernel is already
+dimension-agnostic) for volumetric embedding scenes.
 
 MIT © Teng Long

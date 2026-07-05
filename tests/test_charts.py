@@ -31,7 +31,8 @@ def test_ball_charts_roundtrip_and_land_on_manifold(s):
 @given(ball_points())
 def test_poincare_chart_is_isometric(s):
     (p, q), k = s
-    assert np.isclose(M.dist(p, q, k), L.dist(Poincare.to_lorentz(p, k), Poincare.to_lorentz(q, k), k), atol=1e-7)
+    # atol 1e-6: arccosh's sqrt amplification of float rounding dominates near d=0
+    assert np.isclose(M.dist(p, q, k), L.dist(Poincare.to_lorentz(p, k), Poincare.to_lorentz(q, k), k), atol=1e-6)
 
 
 @given(ball_points())

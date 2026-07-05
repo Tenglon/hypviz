@@ -5,7 +5,7 @@ def test_every_scene_exports_every_2d_view(tmp_path):
     for name, build in GALLERY.items():
         scene = build()
         for view in scene.views:
-            if view == "lorentz":
+            if view in ("lorentz", "hemisphere"):  # 3D views: interactive only
                 continue
             out = scene.to_svg(tmp_path / f"{name}_{view}.svg", view=view)
             assert out.stat().st_size > 5000  # a real drawing, not an empty canvas

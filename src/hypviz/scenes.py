@@ -1,6 +1,6 @@
 """The v1 gallery: prebuilt teaching scenes, each assembled from the public
 primitives — they double as API examples."""
-from .scene import DistanceLabel, Geodesic, LogVector, MobiusSum, Point, Scene, TangentPlane
+from .scene import DistanceLabel, Geodesic, LogVector, MetricCircle, MobiusSum, Point, Scene, TangentPlane
 
 # paper palette (dataviz categorical slots)
 BLUE, AQUA, YELLOW, VIOLET = "#2a78d6", "#1baf7a", "#eda100", "#4a3aa7"
@@ -34,15 +34,20 @@ def models():
 
 def exp_log():
     """Scene 3 — exp / log maps: the straight arrow is v = log_x(y) in the
-    tangent space; the curve is t -> exp_x(t v)."""
+    tangent space; the curve is t -> exp_x(t v). The hemisphere is the Poincaré
+    disk lifted into 3D (stereographic projection), where tangent planes tilt."""
     x = Point([0.12, -0.08], draggable=True, label="x", color=BLUE)
     y = Point([0.52, 0.35], draggable=True, label="y", color=AQUA)
     return Scene(
-        [x, y, Geodesic(x, y), LogVector(x, y, color=VIOLET), TangentPlane(x), DistanceLabel(x, y)],
+        [x, y, Geodesic(x, y), LogVector(x, y, color=VIOLET), TangentPlane(x),
+         MetricCircle(x, radius=0.35, color=VIOLET), DistanceLabel(x, y)],
+        views=("poincare", "hemisphere", "lorentz"),
         curvature_slider=True,
         hint=("The violet arrow is the tangent vector v = log_x(y): the 'straight-line instruction' that "
-              "exp_x turns into a geodesic. Drag x or y — the arrow lives in the tangent plane at x "
-              "(shown in 3D), and its length equals the geodesic distance d(x, y)."),
+              "exp_x turns into a geodesic; its length equals d(x, y). The hemisphere is the Poincaré disk "
+              "lifted into 3D — there (and on the hyperboloid) the tangent plane at x is a real tilted plane. "
+              "On the flat disk the tangent plane IS the screen; the violet metric circle (a fixed hyperbolic "
+              "ruler in T_x) shrinks as x approaches the rim — that is the conformal factor."),
     )
 
 

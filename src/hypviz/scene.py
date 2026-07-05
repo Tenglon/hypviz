@@ -77,7 +77,7 @@ class MobiusSum(_Obj):
 
 
 class TangentPlane(_Obj):
-    """A translucent patch of the tangent plane at a point (3D view only)."""
+    """A translucent patch of the tangent plane at a point (3D views only)."""
 
     def __init__(self, at):
         super().__init__()
@@ -85,6 +85,21 @@ class TangentPlane(_Obj):
 
     def to_json(self, k):
         return {"id": self.id, "type": "tangent_plane", "at": self.at.id}
+
+
+class MetricCircle(_Obj):
+    """The metric circle {|v|_hyp = radius} in the tangent space at a point,
+    drawn through each view's differential — a Euclidean circle that shrinks
+    near the disk's rim (the conformal factor made visible); a tilted circle
+    inside the tangent plane in 3D views."""
+
+    def __init__(self, at, radius=0.35, color=None):
+        super().__init__()
+        self.at, self.radius, self.color = at, radius, color
+
+    def to_json(self, k):
+        return {"id": self.id, "type": "metric_circle", "at": self.at.id,
+                "radius": self.radius, "color": self.color}
 
 
 _DEFAULT_HINT = ("Drag the highlighted points — in either view; the 3D view orbits and zooms with the mouse. "

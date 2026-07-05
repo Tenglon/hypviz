@@ -61,6 +61,7 @@ export class HypView {
   lines = new Map<string, THREE.Line>();
   arrows = new Map<string, { line: THREE.Line; cone: THREE.Mesh }>();
   planes = new Map<string, THREE.Mesh>();
+  tcircles = new Map<string, THREE.LineLoop>();
   labels = new Map<string, { div: HTMLElement; world: THREE.Vector3 }>();
   raycaster = new THREE.Raycaster();
   dragId: string | null = null;
@@ -77,13 +78,15 @@ export class HypView {
     this.scene3.background = new THREE.Color(COLORS.bg);
     this.scene3.add(this.statics);
 
-    if (chart === "lorentz") {
+    if (this.is3D) {
       this.camera = new THREE.PerspectiveCamera(45, 1, 0.1, 200);
       this.camera.up.set(0, 0, 1);
-      this.camera.position.set(9.5, -14, 10); // fixed in absolute coords — curvature must be visible
       this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-      this.controls.target.set(0, 0, 2);
       this.controls.enableDamping = true;
+      if (chart === "lorentz") {
+        this.camera.position.set(9.5, -14, 10); // fixed in absolute coords — curvature must be visible
+        this.controls.target.set(0, 0, 2);
+      } // hemisphere camera scales with R, set in setCurvature
     } else {
       this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
     }
@@ -100,9 +103,18 @@ export class HypView {
     return 1 / Math.sqrt(-this.kNow);
   }
 
-  /** Lorentz hub coords -> this view's world coords (3D: apex pinned at z=0). */
+  get is3D() {
+    return this.chart === "lorentz" || this.chart === "hemisphere";
+  }
+
+  /** Lorentz hub coords -> this view's world coords (3D: apex pinned at z=0;
+   * hemisphere: the Klein disk lifted onto the upper sphere of radius R). */
   project(x: Vec): THREE.Vector3 {
     if (this.chart === "lorentz") return new THREE.Vector3(x[1], x[2], x[0] - this.R);
+    if (this.chart === "hemisphere") {
+      const [a, b] = CHARTS.klein.fromLorentz(x, this.kNow);
+      return new THREE.Vector3(a, b, Math.sqrt(Math.max(this.R ** 2 - a * a - b * b, 0)));
+    }
     const p = CHARTS[this.chart].fromLorentz(x, this.kNow);
     return new THREE.Vector3(p[0], p[1], 0);
   }
@@ -113,9 +125,9 @@ export class HypView {
     return this.project(L.expmap(x, L.scale(e, v), this.kNow)).sub(this.project(x)).divideScalar(e);
   }
 
-  /** Rebuild all curvature-dependent statics and reframe 2D cameras.
-   * Both views draw the SAME grid over the shared domain, plus the domain rim
-   * ring — the two views stay in visual lockstep out to that ring. */
+  /** Rebuild all curvature-dependent statics and reframe cameras.
+   * Every view draws the SAME grid over the shared domain, plus the domain rim
+   * ring — all views stay in visual lockstep out to that ring. */
   setCurvature(k: number) {
     if (k === this.kNow) return;
     this.kNow = k;
@@ -123,28 +135,37 @@ export class HypView {
     this.statics.clear();
     this.surface = undefined;
     if (this.chart === "lorentz") {
-      this.surface = this.makeSurface();
+      this.surface = this.makeSurface((t, th) =>
+        [R * Math.sinh(t) * Math.cos(th), R * Math.sinh(t) * Math.sin(th), R * Math.cosh(t) - R], Math.asinh(S / R));
       this.statics.add(this.surface);
     } else {
-      this.addFillAndBoundary();
-      // context beyond the 3D window: faint grid out to 0.995 R (the space goes on)
+      if (this.chart === "hemisphere") {
+        this.surface = this.makeSurface((t, th) =>
+          [R * Math.sin(t) * Math.cos(th), R * Math.sin(t) * Math.sin(th), R * Math.cos(t)], Math.PI / 2);
+        this.statics.add(this.surface);
+        const eq: Vec[] = Array.from({ length: 129 }, (_, i) =>
+          [0, R * Math.cos((2 * Math.PI * i) / 128), R * Math.sin((2 * Math.PI * i) / 128)]);
+        this.statics.add(this.curve(eq, COLORS.boundary, true)); // equator = ideal boundary
+        this.camera.position.set(2.7 * R, -3.8 * R, 2.9 * R);
+        this.controls!.target.set(0, 0, 0.35 * R);
+      } else {
+        this.addFillAndBoundary();
+        this.resize();
+      }
+      // context beyond the 3D window: faint grid toward the ideal boundary (the space goes on)
       for (const th of THETAS) this.statics.add(this.curve(ray(k, th, D, 6 * R), COLORS.gridFaint));
       for (let d = Math.ceil(D / 0.5) * 0.5; d <= 6 * R + 1e-9; d += 0.5)
         this.statics.add(this.curve(ring(k, d), COLORS.gridFaint));
-      this.resize();
     }
     for (const th of THETAS) this.statics.add(this.curve(ray(k, th, 0, D), COLORS.grid));
     for (let d = 0.5; d < D; d += 0.5) this.statics.add(this.curve(ring(k, d), COLORS.grid));
     this.statics.add(this.curve(ring(k, D), COLORS.rim)); // the shared window edge
   }
 
-  private makeSurface(): THREE.Mesh {
-    const R = this.R, tmax = Math.asinh(S / R), N = 32, T = 64, pos: number[] = [], idx: number[] = [];
+  private makeSurface(f: (t: number, th: number) => number[], tmax: number): THREE.Mesh {
+    const N = 32, T = 64, pos: number[] = [], idx: number[] = [];
     for (let i = 0; i <= N; i++)
-      for (let j = 0; j <= T; j++) {
-        const t = (tmax * i) / N, th = (2 * Math.PI * j) / T;
-        pos.push(R * Math.sinh(t) * Math.cos(th), R * Math.sinh(t) * Math.sin(th), R * Math.cosh(t) - R);
-      }
+      for (let j = 0; j <= T; j++) pos.push(...f((tmax * i) / N, (2 * Math.PI * j) / T));
     for (let i = 0; i < N; i++)
       for (let j = 0; j < T; j++) {
         const a = i * (T + 1) + j, b = a + T + 1;
@@ -156,6 +177,14 @@ export class HypView {
     return new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
       color: COLORS.surface, transparent: true, opacity: 0.22, side: THREE.DoubleSide, depthWrite: false,
     }));
+  }
+
+  /** Minkowski-orthonormal basis of T_at, for tangent-space glyphs. */
+  private tangentBasis(at: Vec): [Vec, Vec] {
+    const nrm = (u: Vec) => L.scale(1 / Math.sqrt(L.mdot(u, u)), u);
+    const e1 = nrm(L.toTangent(at, [0, 1, 0], this.kNow));
+    const raw = L.toTangent(at, [0, 0, 1], this.kNow);
+    return [e1, nrm(L.add(raw, L.scale(-L.mdot(e1, raw), e1)))];
   }
 
   private addFillAndBoundary() {
@@ -205,7 +234,8 @@ export class HypView {
         this.scene3.add(s);
         this.spheres.set(id, s);
       }
-      s.scale.setScalar(this.chart === "lorentz" ? 0.11 : FRAME[this.chart].hh * this.R * 0.03);
+      s.scale.setScalar(this.chart === "lorentz" ? 0.11 :
+        this.chart === "hemisphere" ? 0.055 * this.R : FRAME[this.chart].hh * this.R * 0.03);
       s.position.copy(this.project(x));
       if (spec.label) {
         const l = this.ensureLabel(`pt:${id}`);
@@ -234,14 +264,15 @@ export class HypView {
         this.arrows.set(id, ar);
       }
       const p0 = this.project(at), dir = this.pushforward(at, v), tip = p0.clone().add(dir);
-      const hs = this.chart === "lorentz" ? 0.28 : FRAME[this.chart].hh * this.R * 0.07;
+      const hs = this.chart === "lorentz" ? 0.28 :
+        this.chart === "hemisphere" ? 0.14 * this.R : FRAME[this.chart].hh * this.R * 0.07;
       ar.line.geometry.setFromPoints([p0, tip]);
       ar.cone.scale.setScalar(hs);
       ar.cone.position.copy(tip).addScaledVector(dir.clone().normalize(), -hs / 2);
       ar.cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
     }
     for (const [id, { at }] of d.planes) {
-      if (this.chart !== "lorentz") continue; // in a 2D chart the tangent plane IS the picture plane
+      if (!this.is3D) continue; // in a 2D chart the tangent plane IS the picture plane
       let mesh = this.planes.get(id);
       if (!mesh) {
         mesh = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({
@@ -250,15 +281,29 @@ export class HypView {
         this.scene3.add(mesh);
         this.planes.set(id, mesh);
       }
-      // Minkowski-orthonormal tangent basis at x, pushed to view space
-      const nrm = (u: Vec) => L.scale(1 / Math.sqrt(L.mdot(u, u)), u);
-      const e1 = nrm(L.toTangent(at, [0, 1, 0], this.kNow));
-      const raw = L.toTangent(at, [0, 0, 1], this.kNow);
-      const e2 = nrm(L.add(raw, L.scale(-L.mdot(e1, raw), e1)));
-      const p0 = this.project(at), sz = 1.4;
+      const [e1, e2] = this.tangentBasis(at);
+      const p0 = this.project(at), sz = this.chart === "hemisphere" ? 0.75 * this.R : 1.4;
       const u1 = this.pushforward(at, e1).setLength(sz), u2 = this.pushforward(at, e2).setLength(sz);
       const c = (s1: number, s2: number) => p0.clone().addScaledVector(u1, s1).addScaledVector(u2, s2);
       mesh.geometry.setFromPoints([c(-1, -1), c(1, -1), c(1, 1), c(-1, -1), c(1, 1), c(-1, 1)]);
+    }
+    for (const [id, { at, r, color }] of d.tcircles) {
+      let loop = this.tcircles.get(id);
+      if (!loop) {
+        loop = new THREE.LineLoop(new THREE.BufferGeometry(),
+          new THREE.LineBasicMaterial({ color: color ?? COLORS.curve }));
+        this.scene3.add(loop);
+        this.tcircles.set(id, loop);
+      }
+      // the metric circle {|v|_hyp = r} in T_at, drawn through each view's differential:
+      // a Euclidean circle shrinking near the rim on the disk; a tilted circle in 3D
+      const [e1, e2] = this.tangentBasis(at);
+      const p0 = this.project(at);
+      const u1 = this.pushforward(at, e1), u2 = this.pushforward(at, e2);
+      loop.geometry.setFromPoints(Array.from({ length: 48 }, (_, i) => {
+        const t = (2 * Math.PI * i) / 48;
+        return p0.clone().addScaledVector(u1, r * Math.cos(t)).addScaledVector(u2, r * Math.sin(t));
+      }));
     }
     for (const [id, { at, text }] of d.labels) {
       const l = this.ensureLabel(id);
@@ -315,9 +360,17 @@ export class HypView {
     if (!this.dragId) return;
     this.raycaster.setFromCamera(this.ndc(e), this.camera);
     let spatial: Vec | undefined;
-    if (this.chart === "lorentz") {
+    if (this.is3D) {
       const hit = this.raycaster.intersectObject(this.surface!)[0];
-      if (hit) spatial = [hit.point.x, hit.point.y];
+      if (!hit) return;
+      if (this.chart === "lorentz") spatial = [hit.point.x, hit.point.y];
+      else {
+        let c: Vec = [hit.point.x, hit.point.y]; // hemisphere xy = Klein coords
+        const lim = BALL_EDGE * this.R, n = Math.hypot(c[0], c[1]);
+        if (n > lim) c = [(c[0] * lim) / n, (c[1] * lim) / n];
+        const x = CHARTS.klein.toLorentz(c, this.kNow);
+        spatial = [x[1], x[2]];
+      }
     } else {
       const p = new THREE.Vector3();
       if (!this.raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 0, 1), 0), p)) return;
@@ -327,7 +380,7 @@ export class HypView {
         const lim = BALL_EDGE * this.R, n = Math.hypot(c[0], c[1]);
         if (n > lim) c = [(c[0] * lim) / n, (c[1] * lim) / n];
       }
-      const x = CHARTS[this.chart].toLorentz(c, this.kNow);
+      const x = CHARTS[this.chart as keyof typeof CHARTS].toLorentz(c, this.kNow);
       spatial = [x[1], x[2]];
     }
     if (!spatial) return;

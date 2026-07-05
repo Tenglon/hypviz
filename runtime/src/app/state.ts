@@ -11,8 +11,9 @@ export type DistanceLabelJSON = { id: string; type: "distance_label"; from: stri
 export type LogVectorJSON = { id: string; type: "log_vector"; base: string; to: string; color?: string };
 export type MobiusSumJSON = { id: string; type: "mobius_sum"; a: string; b: string; label?: string; color?: string };
 export type TangentPlaneJSON = { id: string; type: "tangent_plane"; at: string };
-export type ObjJSON = PointJSON | GeodesicJSON | DistanceLabelJSON | LogVectorJSON | MobiusSumJSON | TangentPlaneJSON;
-export type ChartKey = "poincare" | "klein" | "halfplane" | "lorentz";
+export type MetricCircleJSON = { id: string; type: "metric_circle"; at: string; radius: number; color?: string };
+export type ObjJSON = PointJSON | GeodesicJSON | DistanceLabelJSON | LogVectorJSON | MobiusSumJSON | TangentPlaneJSON | MetricCircleJSON;
+export type ChartKey = "poincare" | "klein" | "halfplane" | "hemisphere" | "lorentz";
 export type SceneJSON = { views: { chart: ChartKey }[]; objects: ObjJSON[]; curvature?: number; curvatureSlider?: boolean };
 
 /** Everything a view needs to draw, all in Lorentz hub coordinates. */
@@ -22,6 +23,7 @@ export interface Derived {
   labels: Map<string, { at: Vec; text: string }>;
   arrows: Map<string, { at: Vec; v: Vec; color?: string }>;
   planes: Map<string, { at: Vec }>;
+  tcircles: Map<string, { at: Vec; r: number; color?: string }>;
 }
 
 export const sample = (x: Vec, y: Vec, k: number, n = 64): Vec[] =>
@@ -64,7 +66,7 @@ export class SceneState {
         pos.set(o.id, Poincare.toLorentz(M.add(pa, pb, k), k));
       }
     // pass 2: build the drawables
-    const d: Derived = { points: new Map(), curves: new Map(), labels: new Map(), arrows: new Map(), planes: new Map() };
+    const d: Derived = { points: new Map(), curves: new Map(), labels: new Map(), arrows: new Map(), planes: new Map(), tcircles: new Map() };
     for (const o of objs) {
       if (o.type === "point") d.points.set(o.id, { x: pos.get(o.id)!, spec: o });
       else if (o.type === "mobius_sum")
@@ -73,6 +75,7 @@ export class SceneState {
       else if (o.type === "log_vector")
         d.arrows.set(o.id, { at: pos.get(o.base)!, v: L.logmap(pos.get(o.base)!, pos.get(o.to)!, k), color: o.color });
       else if (o.type === "tangent_plane") d.planes.set(o.id, { at: pos.get(o.at)! });
+      else if (o.type === "metric_circle") d.tcircles.set(o.id, { at: pos.get(o.at)!, r: o.radius, color: o.color });
       else if (o.type === "distance_label")
         d.labels.set(o.id, {
           at: L.geodesic(pos.get(o.from)!, pos.get(o.to)!, 0.5, k),

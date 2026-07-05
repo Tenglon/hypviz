@@ -93,6 +93,19 @@ def to_figure(scene, view="poincare", state=None, size=5.5):
             tip = p0 + (p1 - p0) / 1e-4
             ax.annotate("", xy=tip, xytext=p0,
                         arrowprops={"arrowstyle": "-|>", "color": o.color or COLORS["curve"], "lw": 1.4})
+        elif cls == "MetricCircle":
+            x = pos[o.at.id]
+            e1 = L.to_tangent(x, np.eye(x.shape[-1])[1], k)
+            e1 = e1 / np.sqrt(L.mdot(e1, e1))
+            raw = L.to_tangent(x, np.eye(x.shape[-1])[2], k)
+            e2 = raw - L.mdot(e1, raw) * e1
+            e2 = e2 / np.sqrt(L.mdot(e2, e2))
+            p0 = proj(x)
+            pf = lambda v: (proj(L.expmap(x, 1e-4 * v, k)) - p0) / 1e-4
+            u1, u2 = pf(e1), pf(e2)
+            ang = np.linspace(0, 2 * np.pi, 49)
+            pts = p0 + o.radius * (np.cos(ang)[:, None] * u1 + np.sin(ang)[:, None] * u2)
+            ax.plot(pts[:, 0], pts[:, 1], color=o.color or COLORS["curve"], lw=0.9)
         elif cls == "DistanceLabel":
             mid = proj(L.geodesic(pos[o.a.id], pos[o.b.id], 0.5, k))
             d = float(L.dist(pos[o.a.id], pos[o.b.id], k))
