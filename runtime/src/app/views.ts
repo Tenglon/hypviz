@@ -1,15 +1,22 @@
 /** three.js views — single stack: orthographic cameras for 2D charts,
  * a perspective camera for the Lorentz hyperboloid. All views consume the
- * same Derived data (Lorentz coordinates) and only differ in projection. */
+ * same Derived data (Lorentz coordinates) and only differ in projection.
+ * Everything scales with R = 1/sqrt(-K); static geometry (grid, boundary,
+ * surface) is rebuilt when the curvature changes. */
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { CHARTS } from "../kernel/charts";
 import { Vec } from "../kernel/lorentz";
 import { ChartKey, Derived, SceneJSON, SceneState } from "./state";
 
-const RMAX = 3.0;          // geodesic radius of the rendered hyperboloid patch
-const CLAMP = 0.9;         // = tanh(RMAX/2): drag limit on ball charts, keeps views consistent
-const COLORS = { point: "#5b8def", curve: "#e8e8e8", grid: "#3a3a3a", boundary: "#777777", surface: "#2a3550" };
+const DMAX = 3.0;                       // geodesic radius of the rendered patch, in units of R
+const CLAMP = Math.tanh(DMAX / 2);      // drag limit on ball charts (fraction of R), keeps views consistent
+
+// paper palette (validated: dataviz slots 1+2 on light surface #fcfcfb)
+const COLORS = {
+  point: "#2a78d6", curve: "#52514e", grid: "#e1e0d9", boundary: "#898781",
+  surface: "#9ec5f4", bg: "#fcfcfb",
+};
 
 const FRAME: Record<string, { c: [number, number]; hh: number }> = {
   poincare: { c: [0, 0], hh: 1.15 },
@@ -17,14 +24,18 @@ const FRAME: Record<string, { c: [number, number]; hh: number }> = {
   halfplane: { c: [0, 2.1], hh: 2.5 },
 };
 
-/** Polar geodesic grid in Lorentz coords: rays from the origin + distance circles. */
-const gridCurves = (): Vec[][] => {
+/** Polar geodesic grid in Lorentz coords: rays from the origin + circles at
+ * absolute hyperbolic distances (0.5, 1, ...) — under a curvature change the
+ * disk stays put on screen and the circles migrate: that IS the lesson. */
+const gridCurves = (k: number): Vec[][] => {
+  const R = 1 / Math.sqrt(-k);
+  const pt = (d: number, th: number): Vec =>
+    [R * Math.cosh(d / R), R * Math.sinh(d / R) * Math.cos(th), R * Math.sinh(d / R) * Math.sin(th)];
   const curves: Vec[][] = [];
-  const pt = (t: number, th: number): Vec => [Math.cosh(t), Math.sinh(t) * Math.cos(th), Math.sinh(t) * Math.sin(th)];
-  for (let k = 0; k < 12; k++)
-    curves.push(Array.from({ length: 33 }, (_, i) => pt((RMAX * i) / 32, (k * Math.PI) / 6)));
-  for (let r = 0.5; r <= RMAX + 1e-9; r += 0.5)
-    curves.push(Array.from({ length: 97 }, (_, i) => pt(r, (2 * Math.PI * i) / 96)));
+  for (let j = 0; j < 12; j++)
+    curves.push(Array.from({ length: 33 }, (_, i) => pt((DMAX * R * i) / 32, (j * Math.PI) / 6)));
+  for (let d = 0.5; d <= DMAX * R + 1e-9; d += 0.5)
+    curves.push(Array.from({ length: 97 }, (_, i) => pt(d, (2 * Math.PI * i) / 96)));
   return curves;
 };
 
@@ -34,7 +45,9 @@ export class HypView {
   scene3 = new THREE.Scene();
   camera!: THREE.Camera;
   controls?: OrbitControls;
+  statics = new THREE.Group(); // grid + boundary + surface; rebuilt on curvature change
   surface?: THREE.Mesh;
+  kNow = NaN;
   spheres = new Map<string, THREE.Mesh>();
   lines = new Map<string, THREE.Line>();
   labels = new Map<string, { div: HTMLElement; world: THREE.Vector3 }>();
@@ -45,30 +58,24 @@ export class HypView {
     this.el = document.createElement("div");
     this.el.className = "hypview";
     parent.appendChild(this.el);
+    this.el.appendChild(this.renderer.domElement);
     const tag = document.createElement("div");
     tag.className = "viewtag";
     tag.textContent = chart === "lorentz" ? "lorentz hyperboloid" : `${chart} model`;
-    this.el.appendChild(this.el.appendChild(this.renderer.domElement) && tag);
-    this.scene3.background = new THREE.Color("#161616");
+    this.el.appendChild(tag);
+    this.scene3.background = new THREE.Color(COLORS.bg);
+    this.scene3.add(this.statics);
 
     if (chart === "lorentz") {
-      this.camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+      this.camera = new THREE.PerspectiveCamera(45, 1, 0.1, 200);
       this.camera.up.set(0, 0, 1);
-      this.camera.position.set(5.2, -7.5, 7.5);
       this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-      this.controls.target.set(0, 0, 2.5);
       this.controls.enableDamping = true;
-      this.surface = this.makeSurface();
-      this.scene3.add(this.surface);
     } else {
-      const { hh, c } = FRAME[chart];
-      this.camera = new THREE.OrthographicCamera(-hh, hh, hh, -hh, 0.1, 10);
-      this.camera.position.set(c[0], c[1], 5);
-      this.addBoundary();
+      this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
     }
-    for (const pts of gridCurves()) this.addStaticCurve(pts, COLORS.grid);
+    this.setCurvature(state.k);
 
-    this.resize();
     window.addEventListener("resize", () => this.resize());
     const dom = this.renderer.domElement;
     dom.addEventListener("pointerdown", (e) => this.onDown(e));
@@ -76,21 +83,43 @@ export class HypView {
     dom.addEventListener("pointerup", () => this.onUp());
   }
 
+  get R() {
+    return 1 / Math.sqrt(-this.kNow);
+  }
+
   /** Lorentz hub coords -> this view's world coords. */
   project(x: Vec): THREE.Vector3 {
     if (this.chart === "lorentz") return new THREE.Vector3(x[1], x[2], x[0]);
-    const p = CHARTS[this.chart].fromLorentz(x);
+    const p = CHARTS[this.chart].fromLorentz(x, this.kNow);
     return new THREE.Vector3(p[0], p[1], 0);
   }
 
+  /** Rebuild all curvature-dependent statics and reframe cameras. */
+  setCurvature(k: number) {
+    if (k === this.kNow) return;
+    this.kNow = k;
+    this.statics.clear();
+    this.surface = undefined;
+    if (this.chart === "lorentz") {
+      this.surface = this.makeSurface();
+      this.statics.add(this.surface);
+      this.camera.position.set(5.2 * this.R, -7.5 * this.R, 7.5 * this.R);
+      this.controls!.target.set(0, 0, 2.5 * this.R);
+    } else {
+      this.addBoundary();
+    }
+    for (const pts of gridCurves(k)) this.addStaticCurve(pts, COLORS.grid);
+    this.resize();
+  }
+
   private makeSurface(): THREE.Mesh {
-    const R = 28, T = 64, pos: number[] = [], idx: number[] = [];
-    for (let i = 0; i <= R; i++)
+    const R = this.R, N = 28, T = 64, pos: number[] = [], idx: number[] = [];
+    for (let i = 0; i <= N; i++)
       for (let j = 0; j <= T; j++) {
-        const r = (RMAX * i) / R, th = (2 * Math.PI * j) / T;
-        pos.push(Math.sinh(r) * Math.cos(th), Math.sinh(r) * Math.sin(th), Math.cosh(r));
+        const t = (DMAX * i) / N, th = (2 * Math.PI * j) / T;
+        pos.push(R * Math.sinh(t) * Math.cos(th), R * Math.sinh(t) * Math.sin(th), R * Math.cosh(t));
       }
-    for (let i = 0; i < R; i++)
+    for (let i = 0; i < N; i++)
       for (let j = 0; j < T; j++) {
         const a = i * (T + 1) + j, b = a + T + 1;
         idx.push(a, b, a + 1, b, b + 1, a + 1);
@@ -99,32 +128,33 @@ export class HypView {
     geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
     geo.setIndex(idx);
     return new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
-      color: COLORS.surface, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false,
+      color: COLORS.surface, transparent: true, opacity: 0.20, side: THREE.DoubleSide, depthWrite: false,
     }));
   }
 
   private addBoundary() {
+    const R = this.R;
     if (this.chart === "halfplane") {
-      this.addStaticCurve([[-8, 0], [8, 0]].map(([a, b]) => [0, a, b]), COLORS.boundary, true);
+      this.addStaticCurve([[-8 * R, 0], [8 * R, 0]].map(([a, b]) => [0, a, b]), COLORS.boundary, true);
     } else {
       const pts: Vec[] = Array.from({ length: 129 }, (_, i) =>
-        [0, Math.cos((2 * Math.PI * i) / 128), Math.sin((2 * Math.PI * i) / 128)]);
+        [0, R * Math.cos((2 * Math.PI * i) / 128), R * Math.sin((2 * Math.PI * i) / 128)]);
       this.addStaticCurve(pts, COLORS.boundary, true);
     }
   }
 
-  /** raw=true: points are already view coords (x ignored as Lorentz). */
+  /** raw=true: points are already view coords (index 0 unused). */
   private addStaticCurve(pts: Vec[], color: string, raw = false) {
     const v3 = pts.map((p) => (raw ? new THREE.Vector3(p[1], p[2], 0) : this.project(p)));
     const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(v3), new THREE.LineBasicMaterial({ color }));
-    this.scene3.add(line);
+    this.statics.add(line);
   }
 
-  private ensureLabel(key: string, cls: string): { div: HTMLElement; world: THREE.Vector3 } {
+  private ensureLabel(key: string): { div: HTMLElement; world: THREE.Vector3 } {
     let l = this.labels.get(key);
     if (!l) {
       const div = document.createElement("div");
-      div.className = cls;
+      div.className = "hyplabel";
       this.el.appendChild(div);
       l = { div, world: new THREE.Vector3() };
       this.labels.set(key, l);
@@ -133,19 +163,21 @@ export class HypView {
   }
 
   update(d: Derived) {
+    this.setCurvature(this.state.k);
     for (const [id, { x, spec }] of d.points) {
       let s = this.spheres.get(id);
       if (!s) {
-        const r = this.chart === "lorentz" ? 0.09 : FRAME[this.chart].hh * 0.032;
-        s = new THREE.Mesh(new THREE.SphereGeometry(r, 24, 12),
+        s = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 12),
           new THREE.MeshBasicMaterial({ color: spec.color ?? COLORS.point }));
         s.userData = spec;
         this.scene3.add(s);
         this.spheres.set(id, s);
       }
+      const r = this.chart === "lorentz" ? 0.09 * this.R : FRAME[this.chart].hh * this.R * 0.03;
+      s.scale.setScalar(r);
       s.position.copy(this.project(x));
       if (spec.label) {
-        const l = this.ensureLabel(`pt:${id}`, "hyplabel");
+        const l = this.ensureLabel(`pt:${id}`);
         l.div.textContent = spec.label;
         l.world.copy(s.position);
       }
@@ -160,7 +192,7 @@ export class HypView {
       line.geometry.setFromPoints(pts.map((p) => this.project(p)));
     }
     for (const [id, { at, text }] of d.labels) {
-      const l = this.ensureLabel(id, "hyplabel");
+      const l = this.ensureLabel(id);
       l.div.textContent = text;
       l.world.copy(this.project(at));
     }
@@ -183,11 +215,12 @@ export class HypView {
     if (this.camera instanceof THREE.PerspectiveCamera) {
       this.camera.aspect = w / h;
     } else if (this.camera instanceof THREE.OrthographicCamera) {
-      const { hh, c } = FRAME[this.chart];
-      this.camera.left = c[0] - (hh * w) / h;
-      this.camera.right = c[0] + (hh * w) / h;
-      this.camera.top = c[1] + hh;
-      this.camera.bottom = c[1] - hh;
+      const { hh, c } = FRAME[this.chart], R = this.R;
+      this.camera.left = c[0] * R - (hh * R * w) / h;
+      this.camera.right = c[0] * R + (hh * R * w) / h;
+      this.camera.top = (c[1] + hh) * R;
+      this.camera.bottom = (c[1] - hh) * R;
+      this.camera.position.set(c[0] * R, c[1] * R, 5);
     }
     (this.camera as THREE.PerspectiveCamera).updateProjectionMatrix();
   }
@@ -218,12 +251,12 @@ export class HypView {
       const p = new THREE.Vector3();
       if (!this.raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 0, 1), 0), p)) return;
       let c: Vec = [p.x, p.y];
-      if (this.chart === "halfplane") c[1] = Math.max(c[1], 0.03);
+      if (this.chart === "halfplane") c[1] = Math.max(c[1], 0.03 * this.R);
       else {
-        const n = Math.hypot(c[0], c[1]);
-        if (n > CLAMP) c = [(c[0] * CLAMP) / n, (c[1] * CLAMP) / n];
+        const lim = CLAMP * this.R, n = Math.hypot(c[0], c[1]);
+        if (n > lim) c = [(c[0] * lim) / n, (c[1] * lim) / n];
       }
-      const x = CHARTS[this.chart].toLorentz(c);
+      const x = CHARTS[this.chart].toLorentz(c, this.kNow);
       this.state.movePoint(this.dragId, [x[1], x[2]]);
     }
   }
@@ -236,6 +269,20 @@ export class HypView {
 
 export function mount(root: HTMLElement, scene: SceneJSON) {
   const state = new SceneState(scene);
+  if (scene.curvatureSlider) {
+    const bar = document.createElement("div");
+    bar.className = "hypctl";
+    const readout = document.createElement("span");
+    readout.textContent = `K = ${state.k.toFixed(2)}`;
+    const input = document.createElement("input");
+    Object.assign(input, { type: "range", min: "-2.5", max: "-0.25", step: "0.05", value: String(state.k) });
+    input.addEventListener("input", () => {
+      state.setCurvature(parseFloat(input.value));
+      readout.textContent = `K = ${state.k.toFixed(2)}`;
+    });
+    bar.append("curvature ", input, readout);
+    root.before(bar);
+  }
   const views = scene.views.map((v) => new HypView(root, v.chart, state));
   views.forEach((v) => v.resize()); // re-measure: flex widths settle only once all views exist
   const rerender = () => {

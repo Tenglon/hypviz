@@ -8,7 +8,7 @@ export type GeodesicJSON = { id: string; type: "geodesic"; from: string; to: str
 export type DistanceLabelJSON = { id: string; type: "distance_label"; from: string; to: string };
 export type ObjJSON = PointJSON | GeodesicJSON | DistanceLabelJSON;
 export type ChartKey = "poincare" | "klein" | "halfplane" | "lorentz";
-export type SceneJSON = { views: { chart: ChartKey }[]; objects: ObjJSON[] };
+export type SceneJSON = { views: { chart: ChartKey }[]; objects: ObjJSON[]; curvature?: number; curvatureSlider?: boolean };
 
 /** Everything a view needs to draw, all in Lorentz hub coordinates. */
 export interface Derived {
@@ -17,8 +17,8 @@ export interface Derived {
   labels: Map<string, { at: Vec; text: string }>;
 }
 
-export const sample = (x: Vec, y: Vec, k = 64): Vec[] =>
-  Array.from({ length: k + 1 }, (_, i) => L.geodesic(x, y, i / k));
+export const sample = (x: Vec, y: Vec, k: number, n = 64): Vec[] =>
+  Array.from({ length: n + 1 }, (_, i) => L.geodesic(x, y, i / n, k));
 
 export class SceneState {
   spatial = new Map<string, Vec>(); // the draggable state: Lorentz spatial coords per point
@@ -28,19 +28,33 @@ export class SceneState {
     for (const o of scene.objects) if (o.type === "point") this.spatial.set(o.id, o.spatial);
   }
 
-  movePoint(id: string, spatial: Vec) {
-    this.spatial.set(id, spatial);
+  get k() {
+    return this.scene.curvature ?? -1;
+  }
+
+  private notify() {
     this.listeners.forEach((f) => f());
   }
 
+  movePoint(id: string, spatial: Vec) {
+    this.spatial.set(id, spatial);
+    this.notify();
+  }
+
+  setCurvature(k: number) {
+    this.scene.curvature = k;
+    this.notify();
+  }
+
   derive(): Derived {
-    const P = (id: string) => L.fromSpatial(this.spatial.get(id)!);
+    const k = this.k;
+    const P = (id: string) => L.fromSpatial(this.spatial.get(id)!, k);
     const d: Derived = { points: new Map(), curves: new Map(), labels: new Map() };
     for (const o of this.scene.objects) {
       if (o.type === "point") d.points.set(o.id, { x: P(o.id), spec: o });
-      else if (o.type === "geodesic") d.curves.set(o.id, { pts: sample(P(o.from), P(o.to)), color: o.color });
+      else if (o.type === "geodesic") d.curves.set(o.id, { pts: sample(P(o.from), P(o.to), k), color: o.color });
       else if (o.type === "distance_label")
-        d.labels.set(o.id, { at: L.geodesic(P(o.from), P(o.to), 0.5), text: `d = ${L.dist(P(o.from), P(o.to)).toFixed(3)}` });
+        d.labels.set(o.id, { at: L.geodesic(P(o.from), P(o.to), 0.5, k), text: `d = ${L.dist(P(o.from), P(o.to), k).toFixed(3)}` });
     }
     return d;
   }
