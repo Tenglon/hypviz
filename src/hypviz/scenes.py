@@ -26,7 +26,9 @@ def models():
         curvature_slider=True,
         hint=("The SAME triangle rendered in four models of H² — drag any vertex in any view. "
               "Klein draws geodesics as straight chords (but distorts angles); Poincaré keeps angles "
-              "true (but bends geodesics into arcs); the hyperboloid is the model everything else projects from."),
+              "true (but bends geodesics into arcs); the hyperboloid is the model everything else projects from. "
+              "In the half-plane the x-axis is the IDEAL BOUNDARY (points at infinity, like the disk's rim) — "
+              "the hyperbolic origin maps to (0, R), the classical base point i."),
     )
 
 
