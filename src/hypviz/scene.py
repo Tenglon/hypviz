@@ -113,3 +113,10 @@ class Scene:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(html)
         return path
+
+    def to_svg(self, path, view="poincare", state=None, **kw):
+        """Publication vector export of one 2D view (also .pdf/.png by extension).
+        Pass `state` (dict or path to a state JSON downloaded from the page) to
+        reproduce an interactively arranged configuration."""
+        from .export import save
+        return save(self, path, view, state, **kw)
