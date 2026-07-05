@@ -346,9 +346,9 @@ export class HypView {
 
 export function mount(root: HTMLElement, scene: SceneJSON) {
   const state = new SceneState(scene);
+  const bar = document.createElement("div");
+  bar.className = "hypctl";
   if (scene.curvatureSlider) {
-    const bar = document.createElement("div");
-    bar.className = "hypctl";
     const readout = document.createElement("span");
     readout.textContent = `K = ${state.k.toFixed(2)}`;
     const input = document.createElement("input");
@@ -358,8 +358,19 @@ export function mount(root: HTMLElement, scene: SceneJSON) {
       readout.textContent = `K = ${state.k.toFixed(2)}`;
     });
     bar.append("curvature ", input, readout);
-    root.before(bar);
   }
+  const btn = document.createElement("button");
+  btn.textContent = "download state";
+  btn.title = "Save the current arrangement as JSON — reproduce it in Python via Scene.to_svg(..., state=...)";
+  btn.addEventListener("click", () => {
+    const data = { curvature: state.k, spatial: Object.fromEntries(state.spatial) };
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 1)], { type: "application/json" }));
+    a.download = "scene-state.json";
+    a.click();
+  });
+  bar.append(btn);
+  root.before(bar);
   const views = scene.views.map((v) => new HypView(root, v.chart, state));
   views.forEach((v) => v.resize()); // re-measure: flex widths settle only once all views exist
   (window as unknown as { __hypviz: object }).__hypviz = { state, views }; // console/debug access
