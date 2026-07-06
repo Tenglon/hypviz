@@ -57,6 +57,22 @@ def test_ptransp_is_isometric_into_target_tangent(s):
 
 
 @given(curvatures)
+def test_gyroplane_signed_distance(k):
+    # the math the gyroplane scene draws: normal m = unit(w), plane = {y:<y,m>=0},
+    # signed distance to it = asinh(<x,m>_L).
+    from hypviz.kernel.charts import Poincare
+    R = 1 / np.sqrt(-k)
+    p = Poincare.to_lorentz(np.array([0.1, 0.15]) * R, k)
+    h = Poincare.to_lorentz(np.array([0.55, 0.35]) * R, k)
+    w = L.logmap(p, h, k)
+    m = w / np.sqrt(L.mdot(w, w))
+    assert np.isclose(L.mdot(p, m), 0, atol=1e-9)               # p lies on the plane
+    for d in (0.6, -1.1):                                       # push d perpendicular → signed dist d
+        y = L.expmap(p, d * m, k)
+        assert np.isclose(np.arcsinh(L.mdot(y, m)), d, atol=1e-8)
+
+
+@given(curvatures)
 def test_holonomy_equals_angle_deficit(k):
     # Gauss-Bonnet: transporting a vector around a geodesic triangle rotates it by
     # the angle deficit π − (α+β+γ) — the math the parallel-transport scene shows.

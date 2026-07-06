@@ -16,6 +16,8 @@ SCENES = {
                    "a⊕b lands away from b⊕a; watch the gap close near the origin or as K → 0."),
     "parallel_transport": ("Parallel transport & holonomy",
                            "Transport a vector around a geodesic triangle; it returns rotated by the area — vanishing as K → 0."),
+    "gyroplane": ("Gyroplanes & gyrovector space",
+                  "The hyperbolic MLR decision boundary and its confidence contours; drag a test point to read its logit."),
     "atlas_mammals": ("Embedding Atlas — a mammal taxonomy",
                       "75 taxa embedded by Sarkar's construction; hover for species, click to trace an ancestor chain."),
     "atlas_synth": ("Embedding Atlas — 128D, sampled",

@@ -1,7 +1,7 @@
 """The v1 gallery: prebuilt teaching scenes, each assembled from the public
 primitives — they double as API examples."""
-from .scene import (DistanceLabel, Geodesic, LogVector, MetricCircle, MobiusSum, Point, Scene,
-                    TangentPlane, TransportLoop)
+from .scene import (DistanceLabel, Geodesic, Gyroplane, LogVector, MetricCircle, MobiusSum, Point,
+                    Scene, TangentPlane, TransportLoop)
 
 # paper palette (dataviz categorical slots)
 BLUE, AQUA, YELLOW, VIOLET = "#2a78d6", "#1baf7a", "#eda100", "#4a3aa7"
@@ -101,5 +101,28 @@ def parallel_transport():
     )
 
 
+def gyroplane():
+    """Scene 6 — gyroplanes & gyrovector space: the hyperbolic MLR decision
+    boundary, its confidence contours, and the normal gyrovector as a gyro-ruler."""
+    p = Point([0.05, 0.08], draggable=True, label="p", color=MUTED)
+    n = Point([0.52, 0.42], draggable=True, label="w", color=VIOLET)
+    t = Point([-0.34, 0.36], draggable=True, label="x", color="#e34948")
+    return Scene(
+        [p, n, t, Gyroplane(p, n, test=t)],
+        curvature_slider=True,
+        legend=[("line", INK, "gyroplane — the decision boundary (a geodesic)"),
+                ("line", BLUE, "positive side — equidistant contours (MLR confidence)"),
+                ("line", AQUA, "negative side"),
+                ("arrow", VIOLET, "normal gyrovector w, with gyro-scalar ruler ticks"),
+                ("point", "#e34948", "x — test point; d = signed distance = the MLR logit")],
+        hint=("A gyroplane is the hyperbolic analog of a decision hyperplane (Ganea et al. 2018): the "
+              "points whose Möbius-difference ⊖p ⊕ x is orthogonal to the normal gyrovector w — a geodesic. "
+              "Its equidistant contours (hypercycles) are the MLR confidence level sets; the ruler ticks on "
+              "w are equal gyro-scalar steps t⊗w, equally spaced in hyperbolic distance (they crowd toward "
+              "the boundary). Drag p and the w-handle to move/rotate the boundary, drag x to read its logit; "
+              "as K → 0 the contours flatten to straight lines."),
+    )
+
+
 GALLERY = {"geodesic": geodesic, "models": models, "exp_log": exp_log,
-           "mobius_add": mobius_add, "parallel_transport": parallel_transport}
+           "mobius_add": mobius_add, "parallel_transport": parallel_transport, "gyroplane": gyroplane}

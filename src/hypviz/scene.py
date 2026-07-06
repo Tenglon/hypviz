@@ -109,6 +109,27 @@ _DEFAULT_HINT = ("Drag the highlighted points — in either view; the 3D view or
                  "infinity, which no isometric embedding can show — dragging stops at the ring in both views.")
 
 
+class Gyroplane(_Obj):
+    """A gyroplane — the hyperbolic decision hyperplane of Ganea et al. (2018):
+    the geodesic through `p` normal to the gyrovector w = ⊖p ⊕ (normal handle).
+    The runtime draws the boundary, its equidistant contours (hypercycles = MLR
+    confidence level sets, colored by side), the normal gyrovector with gyro-scalar
+    ruler ticks, and — for the optional `test` point — its signed distance (logit)."""
+
+    def __init__(self, p, normal, test=None, levels=(0.7, 1.4), plane="#52514e",
+                 pos="#2a78d6", neg="#1baf7a", normal_color="#4a3aa7", perp="#898781"):
+        super().__init__()
+        self.p, self.normal, self.test, self.levels = p, normal, test, list(levels)
+        self.colors = {"plane": plane, "pos": pos, "neg": neg, "normal": normal_color, "perp": perp}
+
+    def to_json(self, k):
+        d = {"id": self.id, "type": "gyroplane", "p": self.p.id, "normal": self.normal.id,
+             "levels": self.levels, "colors": self.colors}
+        if self.test is not None:
+            d["test"] = self.test.id
+        return d
+
+
 class TransportLoop(_Obj):
     """Parallel-transport a unit tangent vector around the closed geodesic loop
     through `points`. The runtime draws the vector at each vertex and the rotated

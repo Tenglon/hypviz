@@ -7,6 +7,7 @@ TITLES = {
     "exp_log": "exp & log maps: the tangent space",
     "mobius_add": "Möbius addition is not commutative",
     "parallel_transport": "Parallel transport & holonomy",
+    "gyroplane": "Gyroplanes & gyrovector space",
 }
 
 for name, build in GALLERY.items():

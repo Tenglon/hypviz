@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>Four models, one geometry</title>
+<title>Gyroplanes & gyrovector space</title>
 <style>
   * { box-sizing: border-box; }
   body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -46,8 +46,8 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>Four models, one geometry</h1>
-    <p class="hint">The SAME triangle rendered in four models of H² — drag any vertex in any view. Klein draws geodesics as straight chords (but distorts angles); Poincaré keeps angles true (but bends geodesics into arcs); the hyperboloid is the model everything else projects from. In the half-plane the x-axis is the IDEAL BOUNDARY (points at infinity, like the disk's rim) — the hyperbolic origin maps to (0, R), the classical base point i.</p>
+    <h1>Gyroplanes & gyrovector space</h1>
+    <p class="hint">A gyroplane is the hyperbolic analog of a decision hyperplane (Ganea et al. 2018): the points whose Möbius-difference ⊖p ⊕ x is orthogonal to the normal gyrovector w — a geodesic. Its equidistant contours (hypercycles) are the MLR confidence level sets; the ruler ticks on w are equal gyro-scalar steps t⊗w, equally spaced in hyperbolic distance (they crowd toward the boundary). Drag p and the w-handle to move/rotate the boundary, drag x to read its logit; as K → 0 the contours flatten to straight lines.</p>
   </header>
   <div id="app"></div>
   <footer>made with hypviz</footer>
@@ -4171,6 +4171,6 @@ three/build/three.module.js:
    *)
 */
 </script>
-<script>HypVizRuntime.mount(document.getElementById("app"), {"views": [{"chart": "poincare"}, {"chart": "klein"}, {"chart": "halfplane"}, {"chart": "lorentz"}], "objects": [{"id": "o4", "type": "point", "spatial": [1.0279001468428781, 0.19579050416054822], "draggable": true, "label": "a", "color": "#2a78d6"}, {"id": "o5", "type": "point", "spatial": [-0.6569438969911969, 1.103665746945211], "draggable": true, "label": "b", "color": "#1baf7a"}, {"id": "o6", "type": "point", "spatial": [-0.43731778425655976, -0.9232264334305151], "draggable": true, "label": "c", "color": "#eda100"}, {"id": "o7", "type": "geodesic", "from": "o4", "to": "o5", "color": null}, {"id": "o8", "type": "geodesic", "from": "o5", "to": "o6", "color": null}, {"id": "o9", "type": "geodesic", "from": "o6", "to": "o4", "color": null}], "curvature": -1.0, "curvatureSlider": true, "legend": [{"kind": "point", "color": "#2a78d6", "label": "a, b, c \u2014 draggable vertices"}, {"kind": "line", "color": "#52514e", "label": "geodesic triangle edges \u2014 one triangle, four charts"}]});</script>
+<script>HypVizRuntime.mount(document.getElementById("app"), {"views": [{"chart": "poincare"}, {"chart": "lorentz"}], "objects": [{"id": "o34", "type": "point", "spatial": [0.10089799212995662, 0.16143678740793058], "draggable": true, "label": "p", "color": "#898781"}, {"id": "o35", "type": "point", "spatial": [1.8799710773680405, 1.5184381778741864], "draggable": true, "label": "w", "color": "#4a3aa7"}, {"id": "o36", "type": "point", "spatial": [-0.900900900900901, 0.9538950715421305], "draggable": true, "label": "x", "color": "#e34948"}, {"id": "o37", "type": "gyroplane", "p": "o34", "normal": "o35", "levels": [0.7, 1.4], "colors": {"plane": "#52514e", "pos": "#2a78d6", "neg": "#1baf7a", "normal": "#4a3aa7", "perp": "#898781"}, "test": "o36"}], "curvature": -1.0, "curvatureSlider": true, "legend": [{"kind": "line", "color": "#52514e", "label": "gyroplane \u2014 the decision boundary (a geodesic)"}, {"kind": "line", "color": "#2a78d6", "label": "positive side \u2014 equidistant contours (MLR confidence)"}, {"kind": "line", "color": "#1baf7a", "label": "negative side"}, {"kind": "arrow", "color": "#4a3aa7", "label": "normal gyrovector w, with gyro-scalar ruler ticks"}, {"kind": "point", "color": "#e34948", "label": "x \u2014 test point; d = signed distance = the MLR logit"}]});</script>
 </body>
 </html>
