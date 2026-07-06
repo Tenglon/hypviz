@@ -51,8 +51,9 @@ def radial_pca(xs, dim=2, k=-1.0, center=None):
     basis = L.tangent_basis(c, k)
     ang = v @ basis.T - 2 * np.outer(v[:, 0], basis[:, 0])
     ang = ang / np.maximum(np.linalg.norm(ang, axis=1, keepdims=True), 1e-12)
-    _, s, wt = np.linalg.svd(ang - ang.mean(0), full_matrices=False)
-    d2 = ang @ wt[:dim].T
+    ang = ang - ang.mean(0)                          # remove the mean direction (cone axis)
+    _, s, wt = np.linalg.svd(ang, full_matrices=False)
+    d2 = ang @ wt[:dim].T                            # project the CENTERED dirs → clades spread full circle
     d2 = r * d2 / np.maximum(np.linalg.norm(d2, axis=1, keepdims=True), 1e-12)  # restore true radius
     pts = L.expmap(L.origin(dim, k), np.concatenate([np.zeros((len(d2), 1)), d2], -1), k)
     var = s**2

@@ -63,6 +63,9 @@ def test_radial_pca_preserves_depth_and_radius():
     assert np.max(np.abs(r_hi - r_lo)) < 1e-9                         # radius exact
     assert np.corrcoef(t.depth(), r_lo)[0, 1] > 0.95                  # depth↔radius survives
     assert info["radius_preserved"]
+    # angular layout spreads full-circle (cone axis removed): both signs of both axes used
+    xy = lo[:, 1:]
+    assert xy[:, 0].min() < 0 < xy[:, 0].max() and xy[:, 1].min() < 0 < xy[:, 1].max()
 
 
 # ---- Sarkar embedding -------------------------------------------------------
