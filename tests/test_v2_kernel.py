@@ -50,6 +50,21 @@ def test_tangent_pca_output_on_manifold():
     assert np.allclose(L.mdot(pts, pts), -1, atol=1e-7)
 
 
+def test_radial_pca_preserves_depth_and_radius():
+    # radial_pca preserves radius (hence depth) REGARDLESS of intrinsic dimension,
+    # which is why it is the hierarchy default — plain tangent PCA only preserves
+    # it when the angular spread happens to be low-dim (data-dependent).
+    t = synth.taxonomy(2500, seed=5)
+    hi = synth.diffuse(t, dim=128, k=K, seed=5)
+    lo, info = reduce.radial_pca(hi, dim=2, k=K)
+    assert np.allclose(L.mdot(lo, lo), -1, atol=1e-7)                 # on manifold
+    r_hi = L.dist(hi, L.origin(128, K), K)
+    r_lo = L.dist(lo, L.origin(2, K), K)
+    assert np.max(np.abs(r_hi - r_lo)) < 1e-9                         # radius exact
+    assert np.corrcoef(t.depth(), r_lo)[0, 1] > 0.95                  # depth↔radius survives
+    assert info["radius_preserved"]
+
+
 # ---- Sarkar embedding -------------------------------------------------------
 
 def test_sarkar_stays_in_disk_and_matches_tau_on_a_path():

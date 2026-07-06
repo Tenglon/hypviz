@@ -9,8 +9,8 @@ CO-SNE (v2.2); the projection is always disclosed in the figure legend (via
 CAVEAT (measured): because PCA is linear, the RADIAL coordinate (‖x‖, i.e. tree
 depth) is only preserved when the embedding's angular spread is ~2-dimensional.
 For genuinely high-intrinsic-dimension data the depth↔radius signal is lost even
-at high explained variance. Callers that care about hierarchy should read
-`explained_variance_ratio` and consider a radius-preserving projection.
+at high explained variance. `radial_pca` fixes this for hierarchical data by
+preserving the radius exactly; it is the atlas default for `Hierarchy` inputs.
 """
 import numpy as np
 
@@ -35,4 +35,27 @@ def tangent_pca(xs, dim=2, k=-1.0):
     pts = L.expmap(L.origin(dim, k), np.concatenate([np.zeros((len(reduced), 1)), reduced], -1), k)
     var = s**2
     info = {"mean": m, "explained_variance_ratio": float(var[:dim].sum() / var.sum())}
+    return pts, info
+
+
+def radial_pca(xs, dim=2, k=-1.0, center=None):
+    """Radius-preserving reduction for hierarchical data: keep each point's exact
+    geodesic distance to `center` (default the origin ≈ tree root), lay out the
+    ANGULAR part with PCA, then re-place each point at its true radius. Preserves
+    depth↔radius by construction (the #1 feature for hierarchy viz); the angular
+    layout is the lossy part. Returns (H^dim points, info)."""
+    xs = as_numpy(xs)
+    c = L.origin(xs.shape[-1] - 1, k) if center is None else as_numpy(center)
+    v = L.logmap(c, xs, k)
+    r = np.sqrt(np.maximum(L.mdot(v, v, True), 0))                # (N, 1) = d(center, x)
+    basis = L.tangent_basis(c, k)
+    ang = v @ basis.T - 2 * np.outer(v[:, 0], basis[:, 0])
+    ang = ang / np.maximum(np.linalg.norm(ang, axis=1, keepdims=True), 1e-12)
+    _, s, wt = np.linalg.svd(ang - ang.mean(0), full_matrices=False)
+    d2 = ang @ wt[:dim].T
+    d2 = r * d2 / np.maximum(np.linalg.norm(d2, axis=1, keepdims=True), 1e-12)  # restore true radius
+    pts = L.expmap(L.origin(dim, k), np.concatenate([np.zeros((len(d2), 1)), d2], -1), k)
+    var = s**2
+    info = {"center": c, "radius_preserved": True,
+            "angular_variance_ratio": float(var[:dim].sum() / var.sum())}
     return pts, info
