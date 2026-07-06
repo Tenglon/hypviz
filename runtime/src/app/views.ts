@@ -69,6 +69,10 @@ export class HypView {
   onPick?: (i: number) => void;
   raycaster = new THREE.Raycaster();
   dragId: string | null = null;
+  zoom2d = 1;
+  panX = 0;
+  panY = 0;
+  private pan?: { sx: number; sy: number; px: number; py: number; moved: boolean };
 
   constructor(parent: HTMLElement, public chart: ChartKey, public state: SceneState) {
     this.el = document.createElement("div");
@@ -104,6 +108,8 @@ export class HypView {
     dom.addEventListener("pointerdown", (e) => this.onDown(e));
     dom.addEventListener("pointermove", (e) => this.onMove(e));
     dom.addEventListener("pointerup", () => this.onUp());
+    dom.addEventListener("wheel", (e) => this.onWheel(e), { passive: false });
+    dom.addEventListener("dblclick", () => this.resetView());   // 2D: reset zoom/pan
   }
 
   get R() {
@@ -335,21 +341,55 @@ export class HypView {
     this.renderer.setSize(w, h, false);
     if (this.camera instanceof THREE.PerspectiveCamera) {
       this.camera.aspect = w / h;
-    } else if (this.camera instanceof THREE.OrthographicCamera) {
-      // frustum bounds are RELATIVE to the camera position: center via position, keep bounds symmetric
-      const { hh, c } = FRAME[this.chart], R = this.R;
-      this.camera.left = (-hh * R * w) / h;
-      this.camera.right = (hh * R * w) / h;
-      this.camera.top = hh * R;
-      this.camera.bottom = -hh * R;
-      this.camera.position.set(c[0] * R, c[1] * R, 5);
+      this.camera.updateProjectionMatrix();
+    } else {
+      this.applyCamera2D();
     }
-    (this.camera as THREE.PerspectiveCamera).updateProjectionMatrix();
+  }
+
+  /** Ortho frustum from zoom + pan (bounds are relative to the camera position). */
+  private applyCamera2D() {
+    if (!(this.camera instanceof THREE.OrthographicCamera)) return;
+    const { hh, c } = FRAME[this.chart], R = this.R;
+    const el = this.renderer.domElement, half = (hh * R) / this.zoom2d;
+    this.camera.left = (-half * el.clientWidth) / el.clientHeight;
+    this.camera.right = (half * el.clientWidth) / el.clientHeight;
+    this.camera.top = half;
+    this.camera.bottom = -half;
+    this.camera.position.set(c[0] * R + this.panX, c[1] * R + this.panY, 5);
+    this.camera.updateProjectionMatrix();
+  }
+
+  private resetView() {
+    if (this.is3D) return;
+    this.zoom2d = 1;
+    this.panX = this.panY = 0;
+    this.applyCamera2D();
+  }
+
+  private worldXY(cx: number, cy: number): THREE.Vector3 {
+    return new THREE.Vector3(this.ndcXY(cx, cy).x, this.ndcXY(cx, cy).y, 0).unproject(this.camera);
+  }
+
+  private onWheel(e: WheelEvent) {
+    if (this.is3D) return;                              // OrbitControls handles 3D zoom
+    e.preventDefault();
+    const before = this.worldXY(e.clientX, e.clientY);
+    this.zoom2d = Math.min(300, Math.max(0.6, this.zoom2d * Math.exp(-e.deltaY * 0.0015)));
+    this.applyCamera2D();
+    const after = this.worldXY(e.clientX, e.clientY);   // keep the point under the cursor fixed
+    this.panX += before.x - after.x;
+    this.panY += before.y - after.y;
+    this.applyCamera2D();
+  }
+
+  private ndcXY(cx: number, cy: number): THREE.Vector2 {
+    const r = this.renderer.domElement.getBoundingClientRect();
+    return new THREE.Vector2(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1);
   }
 
   private ndc(e: PointerEvent): THREE.Vector2 {
-    const r = this.renderer.domElement.getBoundingClientRect();
-    return new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    return this.ndcXY(e.clientX, e.clientY);
   }
 
   private pickR() {
@@ -366,13 +406,22 @@ export class HypView {
       this.renderer.domElement.setPointerCapture(e.pointerId);
       return;
     }
-    if (this.clouds.length) {                       // click a node → highlight its ancestor chain
-      for (const cl of this.clouds) {
-        const i = cl.pick(this.raycaster, this.pickR());
-        if (i >= 0) return this.onPick?.(i);
-      }
-      this.onPick?.(-1);                            // click empty space → clear selection
+    if (!this.is3D) {                               // 2D: drag pans; a click (no drag) selects on release
+      this.pan = { sx: e.clientX, sy: e.clientY, px: this.panX, py: this.panY, moved: false };
+      this.renderer.domElement.setPointerCapture(e.pointerId);
+      return;
     }
+    this.clickSelect(e.clientX, e.clientY);         // 3D: OrbitControls owns the drag, click selects
+  }
+
+  private clickSelect(cx: number, cy: number) {
+    if (!this.clouds.length) return;
+    this.raycaster.setFromCamera(this.ndcXY(cx, cy), this.camera);
+    for (const cl of this.clouds) {
+      const i = cl.pick(this.raycaster, this.pickR());
+      if (i >= 0) return this.onPick?.(i);
+    }
+    this.onPick?.(-1);                              // empty click → clear
   }
 
   private hover(e: PointerEvent) {
@@ -390,6 +439,15 @@ export class HypView {
   }
 
   private onMove(e: PointerEvent) {
+    if (this.pan) {                                 // 2D drag → pan
+      const dpx = e.clientX - this.pan.sx, dpy = e.clientY - this.pan.sy;
+      if (Math.hypot(dpx, dpy) > 3) this.pan.moved = true;
+      const el = this.renderer.domElement, upp = (2 * FRAME[this.chart].hh * this.R) / this.zoom2d / el.clientHeight;
+      this.panX = this.pan.px - dpx * upp;
+      this.panY = this.pan.py + dpy * upp;
+      this.applyCamera2D();
+      return;
+    }
     if (!this.dragId) return this.hover(e);
     this.raycaster.setFromCamera(this.ndc(e), this.camera);
     let spatial: Vec | undefined;
@@ -425,6 +483,10 @@ export class HypView {
   }
 
   private onUp() {
+    if (this.pan) {
+      if (!this.pan.moved) this.clickSelect(this.pan.sx, this.pan.sy);   // a click, not a pan → select
+      this.pan = undefined;
+    }
     this.dragId = null;
     if (this.controls) this.controls.enabled = true;
   }
