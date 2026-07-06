@@ -6,3 +6,6 @@ node_modules/
 .hypothesis/
 .pytest_cache/
 examples/out/
+
+# large regenerable embedding artifacts (train_128d.py)
+data/
