@@ -69,7 +69,7 @@ def test_gyroplane_signed_distance(k):
     assert np.isclose(L.mdot(p, m), 0, atol=1e-9)               # p lies on the plane
     for d in (0.6, -1.1):                                       # push d perpendicular → signed dist d
         y = L.expmap(p, d * m, k)
-        assert np.isclose(np.arcsinh(L.mdot(y, m)), d, atol=1e-8)
+        assert np.isclose(R * np.arcsinh(L.mdot(y, m) / R), d, atol=1e-8)   # R factor for K≠-1
 
 
 @given(curvatures)

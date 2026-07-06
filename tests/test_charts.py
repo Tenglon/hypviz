@@ -48,7 +48,8 @@ def test_halfplane_roundtrip_isometric_and_upper(s):
     w = [HalfPlane.from_lorentz(Poincare.to_lorentz(v, k), k) for v in (p, q)]
     assert all(v[..., 1] > 0 for v in w)  # lands in the upper half-plane
     assert np.allclose(HalfPlane.from_lorentz(HalfPlane.to_lorentz(w[0], k), k), w[0], atol=1e-8)
-    assert np.isclose(L.dist(HalfPlane.to_lorentz(w[0], k), HalfPlane.to_lorentz(w[1], k), k), M.dist(p, q, k), atol=1e-7)
+    # atol handles coincident points (true dist 0); rtol handles large near-boundary distances
+    assert np.isclose(L.dist(HalfPlane.to_lorentz(w[0], k), HalfPlane.to_lorentz(w[1], k), k), M.dist(p, q, k), rtol=1e-6, atol=1e-6)
 
 
 def test_registry():

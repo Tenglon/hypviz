@@ -124,8 +124,8 @@ export class SceneState {
             });
           }
           if (o.test) {
-            const X = pos.get(o.test)!;
-            const dd = Math.asinh(L.mdot(X, m));              // signed distance = the MLR logit
+            const X = pos.get(o.test)!, R = 1 / Math.sqrt(-k);
+            const dd = R * Math.asinh(L.mdot(X, m) / R);      // signed distance = the MLR logit
             const foot = L.expmap(X, L.scale(-dd, unit(L.toTangent(X, m, k))), k);
             d.curves.set(`${o.id}:perp`, { pts: sample(X, foot, k, 24), color: o.colors.perp });
             d.labels.set(o.id, { at: X, text: `d = ${dd >= 0 ? "+" : ""}${dd.toFixed(2)}` });
