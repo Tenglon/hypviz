@@ -65,3 +65,27 @@ def ptransp(x, y, v, k=-1.0):
 def geodesic(x, y, t, k=-1.0):
     """Points gamma(t) on the geodesic with gamma(0)=x, gamma(1)=y; t broadcasts."""
     return expmap(x, np.asarray(t)[..., None] * logmap(x, y, k), k)
+
+
+def frechet_mean(xs, k=-1.0, weights=None, iters=100):
+    """Weighted Karcher mean of points xs (N, n+1): iterate m <- exp_m(mean w_i log_m x_i)."""
+    w = np.ones(len(xs)) if weights is None else np.asarray(weights, float)
+    w = (w / w.sum())[:, None]
+    m = xs[int(np.argmax(w))].copy()
+    for _ in range(iters):
+        m = expmap(m, np.sum(w * logmap(m, xs, k), 0), k)
+    return m
+
+
+def tangent_basis(m, k=-1.0):
+    """Minkowski-orthonormal basis (n vectors, rows) of the tangent space T_m H^n."""
+    n1 = m.shape[-1]
+    basis = []
+    for e in np.eye(n1):
+        e = to_tangent(m, e, k)
+        for b in basis:
+            e = e - mdot(e, b) * b   # the Minkowski form is positive-definite on T_m
+        nrm = np.sqrt(max(mdot(e, e), 0))
+        if nrm > 1e-9:
+            basis.append(e / nrm)
+    return np.stack(basis)

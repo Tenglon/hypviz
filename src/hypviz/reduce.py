@@ -1,0 +1,38 @@
+"""Dimensionality reduction for hyperbolic embeddings.
+
+`tangent_pca` is the naive baseline: log at the Fréchet mean, PCA in the
+(Minkowski-orthonormal) tangent space, exp the top components back into a
+lower-dimensional hyperbolic space. It is the predecessor of HoroPCA (v2.1) and
+CO-SNE (v2.2); the projection is always disclosed in the figure legend (via
+`explained_variance_ratio`), never applied silently.
+
+CAVEAT (measured): because PCA is linear, the RADIAL coordinate (‖x‖, i.e. tree
+depth) is only preserved when the embedding's angular spread is ~2-dimensional.
+For genuinely high-intrinsic-dimension data the depth↔radius signal is lost even
+at high explained variance. Callers that care about hierarchy should read
+`explained_variance_ratio` and consider a radius-preserving projection.
+"""
+import numpy as np
+
+from .kernel import lorentz as L
+from .kernel.adapters import as_numpy
+
+
+def tangent_pca(xs, dim=2, k=-1.0):
+    """Project points on H^n (Lorentz coords) to H^dim via tangent-space PCA.
+
+    Returns (H^dim points, info) where info carries the mean and explained
+    variance ratio so callers can report projection quality.
+    """
+    xs = as_numpy(xs)
+    m = L.frechet_mean(xs, k)
+    basis = L.tangent_basis(m, k)                      # (n, n+1)
+    v = L.logmap(m, xs, k)                              # (N, n+1) tangent vectors at m
+    coords = v @ basis.T - 2 * np.outer(v[:, 0], basis[:, 0])   # <v, e_j>_L  -> (N, n)
+    coords = coords - coords.mean(0)
+    _, s, wt = np.linalg.svd(coords, full_matrices=False)
+    reduced = coords @ wt[:dim].T                       # (N, dim) principal tangent coords
+    pts = L.expmap(L.origin(dim, k), np.concatenate([np.zeros((len(reduced), 1)), reduced], -1), k)
+    var = s**2
+    info = {"mean": m, "explained_variance_ratio": float(var[:dim].sum() / var.sum())}
+    return pts, info
