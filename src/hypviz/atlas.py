@@ -32,9 +32,11 @@ def atlas(coords, edges, labels=None, *, chart="lorentz", k=-1.0, color_by="dept
     notes = []
     if n_full > len(h):
         notes.append(f"showing {len(h):,} of {n_full:,} nodes ({h.rate:.0%}) — hover for pruned-leaf counts")
-    if orig_dim > 2:
-        how = "radius-preserving, depth↔radius exact" if reduction == "radial" else "tangent-space PCA"
-        notes.append(f"projected {orig_dim}D → 2D ({how})")
+    if orig_dim > 2 or reduction == "tree":
+        how = {"radial": "radius-preserving, depth↔radius exact",
+               "tree": "radius = embedding distance-to-root; angle = tree layout",
+               "tangent": "tangent-space PCA"}[reduction]
+        notes.append(f"{orig_dim}D → 2D ({how})")
     hint = "Hover a node for its label and pruned-leaf count; click a node to highlight its ancestor chain."
     if notes:
         hint += "  " + " · ".join(notes) + "."

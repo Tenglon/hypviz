@@ -52,13 +52,41 @@ class Hierarchy:
                          k=self.k, pruned_leaves=s.pruned_leaves[idx], rate=s.rate)
 
     def reduce(self, dim=2, method="radial"):
-        """Project to `dim` dimensions. 'radial' (default) preserves each node's
-        distance to the root — so depth↔radius survives; 'tangent' is plain PCA."""
-        if self.dim <= dim:
+        """Project to `dim` dimensions.
+        'radial'  — radius = distance-to-root (exact), angle from embedding PCA:
+                    faithful to the embedding's angular structure (can blob for
+                    cone-like embeddings).
+        'tree'    — radius = distance-to-root (exact), angle from the tree layout:
+                    legible spread (clades fan across the disk); the angle is a
+                    layout, not embedding-derived.
+        'tangent' — plain tangent-space PCA (no privileged radius)."""
+        if self.dim <= dim and method != "tree":
             lo = self.coords
+        elif method == "tree":
+            lo = self._tree_layout()
         elif method == "radial":
             lo, _ = _reduce.radial_pca(self.coords, dim, self.k, center=self.coords[self.tree.root])
         else:
             lo, _ = _reduce.tangent_pca(self.coords, dim, self.k)
         return Hierarchy(lo, self.tree, self.labels, k=self.k,
                          pruned_leaves=self.pruned_leaves, rate=self.rate)
+
+    def _tree_layout(self):
+        """H² layout: real hyperbolic radius from the embedding, angular sector per
+        node from the tree (split ∝ subtree size) — a Sarkar-style spread."""
+        from .sample import _subtree_sizes
+        r = self.norm()
+        size = _subtree_sizes(self.tree)
+        angle = np.zeros(len(self))
+        sector = {self.tree.root: (0.0, 2 * np.pi)}
+        for u in self.tree.bfs():
+            a0, a1 = sector[u]
+            angle[u] = (a0 + a1) / 2
+            kids = self.tree.children[u]
+            total, acc = sum(size[c] for c in kids), a0
+            for c in kids:
+                w = (a1 - a0) * size[c] / total
+                sector[c] = (acc, acc + w)
+                acc += w
+        u2 = r[:, None] * np.stack([np.cos(angle), np.sin(angle)], -1)
+        return L.expmap(L.origin(2, self.k), np.concatenate([np.zeros((len(self), 1)), u2], -1), self.k)

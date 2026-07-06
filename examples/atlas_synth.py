@@ -7,7 +7,7 @@ def build_scene():
     t = synth.taxonomy(30_000, seed=0)
     coords = synth.diffuse(t, dim=128, k=-1.0, seed=0)     # 128D hyperbolic embedding
     return atlas(coords, t.edges(), labels=[f"depth {d}" for d in t.depth()],
-                 color_by="depth", budget=4000)
+                 color_by="depth", budget=4000, reduction="tree")
 
 
 if __name__ == "__main__":

@@ -68,6 +68,20 @@ def test_hierarchy_sample_then_reduce_pipeline():
     assert np.corrcoef(lo.depth(), lo.norm())[0, 1] > 0.95
 
 
+def test_tree_layout_keeps_radius_and_fills_all_angles():
+    t = synth.taxonomy(6000, seed=11)
+    coords = synth.diffuse(t, dim=128, k=K, seed=11)
+    h = Hierarchy(coords, t).sample(2000, seed=11)
+    tree = h.reduce(2, "tree")
+    assert np.allclose(L.mdot(tree.coords, tree.coords), -1, atol=1e-7)   # on manifold
+    # radius (distance-to-root) preserved from the embedding
+    assert np.allclose(h.norm(), tree.norm(), atol=1e-6)
+    # angle fills the circle (radial_pca blobbed cone-like data into a wedge; tree does not)
+    ang = np.arctan2(tree.coords[:, 2], tree.coords[:, 1])
+    occupied = len(np.unique(np.floor((ang + np.pi) / (2 * np.pi) * 24).astype(int)))
+    assert occupied >= 20
+
+
 def test_hierarchy_pruned_counts_survive_sampling():
     t = synth.taxonomy(6000, seed=9)
     h = Hierarchy(synth.diffuse(t, dim=32, k=K, seed=9), t)

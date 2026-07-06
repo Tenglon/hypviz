@@ -62,10 +62,14 @@ stats.norm_hist(coords).savefig("norms.svg")          # full-data analysis figur
 stats.depth_norm(coords, depths).savefig("depth.svg") # the depth≈radius staircase
 ```
 
-- **High-dimensional in, honest 2D out.** >2D embeddings are reduced with a
-  **radius-preserving** projection (default for hierarchies) that keeps each node's
-  distance-to-root *exact* — so the depth↔radius signal survives, where plain
-  tangent-space PCA loses it. The projection and its trade-off are stated in the legend.
+- **High-dimensional in, honest 2D out.** Pick the reduction (`reduction=`), always
+  disclosed in the legend:
+  - `radial` (default) — radius = distance-to-root *exact*, angle from embedding PCA.
+    Faithful to the embedding's angular structure; **cone-like embeddings** (common in
+    trained Poincaré models) can collapse angularly into a wedge.
+  - `tree` — radius = distance-to-root, angle assigned by the tree (a Sarkar-style
+    spread). Always legible, fills the disk; the angle is a *layout*, not embedding-derived.
+  - `tangent` — plain tangent-space PCA (no privileged radius).
 - **Scale by sampling, disclose the rest.** `budget` caps the drawn nodes with a
   hierarchy-aware sampler (ancestor closure guaranteed); every hover tooltip reports
   the `+N leaves not shown` under that node — nothing is silently dropped.

@@ -17,7 +17,7 @@ SCENES = {
     "atlas_mammals": ("Embedding Atlas — a mammal taxonomy",
                       "75 taxa embedded by Sarkar's construction; hover for species, click to trace an ancestor chain."),
     "atlas_synth": ("Embedding Atlas — 128D, sampled",
-                    "A 30k-node synthetic embedding, radius-reduced to 2D and sampled to 4k with honest pruned counts."),
+                    "A 30k-node synthetic embedding: depth-encoding radius + tree-layout angle, sampled to 4k with honest pruned counts."),
 }
 
 # pre-built static pages (need external data/deps to regenerate, so committed as artifacts)
