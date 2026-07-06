@@ -14,8 +14,9 @@ export type TangentPlaneJSON = { id: string; type: "tangent_plane"; at: string }
 export type MetricCircleJSON = { id: string; type: "metric_circle"; at: string; radius: number; color?: string };
 export type TransportLoopJSON = { id: string; type: "transport_loop"; points: string[]; colors: { initial: string; mid: string; returned: string } };
 export type GyroplaneJSON = { id: string; type: "gyroplane"; p: string; normal: string; test?: string; levels: number[]; colors: { plane: string; pos: string; neg: string; normal: string; perp: string } };
+export type EntailmentConeJSON = { id: string; type: "entailment_cone"; apex: string; test?: string; aperture: number; colors: { fill: string; edge: string; yes: string; no: string } };
 export type CloudJSON = { id: string; type: "cloud"; spatial: number[][]; colors: string[]; labels?: string[]; parent?: number[]; pruned?: number[] };
-export type ObjJSON = PointJSON | GeodesicJSON | DistanceLabelJSON | LogVectorJSON | MobiusSumJSON | TangentPlaneJSON | MetricCircleJSON | TransportLoopJSON | GyroplaneJSON | CloudJSON;
+export type ObjJSON = PointJSON | GeodesicJSON | DistanceLabelJSON | LogVectorJSON | MobiusSumJSON | TangentPlaneJSON | MetricCircleJSON | TransportLoopJSON | GyroplaneJSON | EntailmentConeJSON | CloudJSON;
 export type ChartKey = "poincare" | "klein" | "halfplane" | "hemisphere" | "lorentz";
 export type LegendEntry = { kind: "line" | "arrow" | "point" | "circle" | "area"; color: string; label: string };
 export type SceneJSON = { views: { chart: ChartKey }[]; objects: ObjJSON[]; curvature?: number; curvatureSlider?: boolean; legend?: LegendEntry[] };
@@ -28,6 +29,7 @@ export interface Derived {
   arrows: Map<string, { at: Vec; v: Vec; color?: string }>;
   planes: Map<string, { at: Vec }>;
   tcircles: Map<string, { at: Vec; r: number; color?: string }>;
+  regions: Map<string, { loop: Vec[]; color: string }>;   // star-shaped from loop[0], filled
 }
 
 export const sample = (x: Vec, y: Vec, k: number, n = 64): Vec[] =>
@@ -70,7 +72,7 @@ export class SceneState {
         pos.set(o.id, Poincare.toLorentz(M.add(pa, pb, k), k));
       }
     // pass 2: build the drawables
-    const d: Derived = { points: new Map(), curves: new Map(), labels: new Map(), arrows: new Map(), planes: new Map(), tcircles: new Map() };
+    const d: Derived = { points: new Map(), curves: new Map(), labels: new Map(), arrows: new Map(), planes: new Map(), tcircles: new Map(), regions: new Map() };
     for (const o of objs) {
       if (o.type === "point") d.points.set(o.id, { x: pos.get(o.id)!, spec: o });
       else if (o.type === "mobius_sum")
@@ -95,6 +97,31 @@ export class SceneState {
         const cos = L.mdot(v0, v) / Math.sqrt(L.mdot(v0, v0) * L.mdot(v, v));
         const deg = (Math.acos(Math.max(-1, Math.min(1, cos))) * 180) / Math.PI;
         d.labels.set(o.id, { at: P[0], text: `holonomy ${deg.toFixed(1)}°` });
+      } else if (o.type === "entailment_cone") {
+        const X = pos.get(o.apex)!, R = 1 / Math.sqrt(-k);
+        const unit = (u: Vec) => L.scale(1 / Math.sqrt(L.mdot(u, u)), u);
+        const O = X.map((_, i) => (i === 0 ? R : 0));
+        const axis = unit(L.scale(-1, L.logmap(X, O, k)));           // outward radial tangent at X
+        let e = L.toTangent(X, X.map((_, i) => (i === 2 ? 1 : 0)), k);
+        if (Math.abs(L.mdot(unit(e), axis)) > 0.99) e = L.toTangent(X, X.map((_, i) => (i === 1 ? 1 : 0)), k);
+        const perp = unit(L.add(e, L.scale(-L.mdot(e, axis), axis)));
+        const pb = Poincare.fromLorentz(X, k);
+        const rho = Math.hypot(...pb) / R;                           // normalized ball norm
+        const psi = Math.asin(Math.max(-1, Math.min(1, (o.aperture * (1 - rho * rho)) / Math.max(rho, 1e-6))));
+        const dir = (t: number) => L.add(L.scale(Math.cos(t), axis), L.scale(Math.sin(t), perp));
+        const S = 4 * R, M = 24;
+        const edge = (t: number) => Array.from({ length: M + 1 }, (_, i) => L.expmap(X, L.scale((S * i) / M, dir(t)), k));
+        const ep = edge(psi), en = edge(-psi);
+        d.curves.set(`${o.id}:e+`, { pts: ep, color: o.colors.edge });
+        d.curves.set(`${o.id}:e-`, { pts: en, color: o.colors.edge });
+        d.regions.set(o.id, { loop: [...ep, ...en.slice().reverse()], color: o.colors.fill });
+        d.labels.set(o.id, { at: X, text: `ψ ${((psi * 180) / Math.PI).toFixed(1)}°` });
+        if (o.test) {
+          const Y = pos.get(o.test)!;
+          const inside = Math.acos(Math.max(-1, Math.min(1, L.mdot(axis, unit(L.logmap(X, Y, k)))))) <= psi;
+          d.curves.set(`${o.id}:ey`, { pts: sample(X, Y, k, 32), color: inside ? o.colors.yes : o.colors.no });
+          d.labels.set(`${o.id}:v`, { at: Y, text: inside ? "x ⊨ y" : "x ⊭ y" });
+        }
       } else if (o.type === "gyroplane") {
         const P = pos.get(o.p)!, H = pos.get(o.normal)!;
         const unit = (u: Vec) => L.scale(1 / Math.sqrt(L.mdot(u, u)), u);

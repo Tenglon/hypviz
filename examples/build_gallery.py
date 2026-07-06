@@ -8,6 +8,7 @@ TITLES = {
     "mobius_add": "Möbius addition is not commutative",
     "parallel_transport": "Parallel transport & holonomy",
     "gyroplane": "Gyroplanes & gyrovector space",
+    "entailment": "Entailment cones",
 }
 
 for name, build in GALLERY.items():

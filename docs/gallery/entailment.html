@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>Four models, one geometry</title>
+<title>Entailment cones</title>
 <style>
   * { box-sizing: border-box; }
   body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -46,8 +46,8 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>Four models, one geometry</h1>
-    <p class="hint">The SAME triangle rendered in four models of H² — drag any vertex in any view. Klein draws geodesics as straight chords (but distorts angles); Poincaré keeps angles true (but bends geodesics into arcs); the hyperboloid is the model everything else projects from. In the half-plane the x-axis is the IDEAL BOUNDARY (points at infinity, like the disk's rim) — the hyperbolic origin maps to (0, R), the classical base point i.</p>
+    <h1>Entailment cones</h1>
+    <p class="hint">A hyperbolic entailment cone (Ganea et al. 2018) is a point's set of descendants: it opens radially outward with half-aperture ψ = arcsin(K(1−ρ²)/ρ). Drag x outward toward the boundary and the cone NARROWS — deep, specific concepts entail fewer things; drag it inward and it widens. Drag y in and out of the cone to test the is-a relation x ⊨ y. As K → 0 the cones straighten into Euclidean wedges.</p>
   </header>
   <div id="app"></div>
   <footer>made with hypviz</footer>
@@ -4171,6 +4171,6 @@ three/build/three.module.js:
    *)
 */
 </script>
-<script>HypVizRuntime.mount(document.getElementById("app"), {"views": [{"chart": "poincare"}, {"chart": "klein"}, {"chart": "halfplane"}, {"chart": "lorentz"}], "objects": [{"id": "o4", "type": "point", "spatial": [1.0279001468428781, 0.19579050416054822], "draggable": true, "label": "a", "color": "#2a78d6"}, {"id": "o5", "type": "point", "spatial": [-0.6569438969911969, 1.103665746945211], "draggable": true, "label": "b", "color": "#1baf7a"}, {"id": "o6", "type": "point", "spatial": [-0.43731778425655976, -0.9232264334305151], "draggable": true, "label": "c", "color": "#eda100"}, {"id": "o7", "type": "geodesic", "from": "o4", "to": "o5", "color": null}, {"id": "o8", "type": "geodesic", "from": "o5", "to": "o6", "color": null}, {"id": "o9", "type": "geodesic", "from": "o6", "to": "o4", "color": null}], "curvature": -1.0, "curvatureSlider": true, "legend": [{"kind": "point", "color": "#2a78d6", "label": "a, b, c \u2014 draggable vertices"}, {"kind": "line", "color": "#52514e", "label": "geodesic triangle edges \u2014 one triangle, four charts"}]});</script>
+<script>HypVizRuntime.mount(document.getElementById("app"), {"views": [{"chart": "poincare"}, {"chart": "lorentz"}], "objects": [{"id": "o38", "type": "point", "spatial": [0.7246376811594203, 0.2717391304347826], "draggable": true, "label": "x", "color": "#898781"}, {"id": "o39", "type": "point", "spatial": [2.3082650781831724, 1.0424422933730457], "draggable": true, "label": "y", "color": "#898781"}, {"id": "o40", "type": "entailment_cone", "apex": "o38", "aperture": 0.1, "colors": {"fill": "#9ec5f4", "edge": "#2a78d6", "yes": "#1baf7a", "no": "#e34948"}, "test": "o39"}], "curvature": -1.0, "curvatureSlider": true, "legend": [{"kind": "area", "color": "#2a78d6", "label": "entailment cone of x \u2014 everything x is an ancestor of"}, {"kind": "line", "color": "#1baf7a", "label": "x \u22a8 y (y inside the cone)"}, {"kind": "line", "color": "#e34948", "label": "x \u22ad y (y outside)"}]});</script>
 </body>
 </html>

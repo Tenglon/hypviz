@@ -56,6 +56,22 @@ def test_ptransp_is_isometric_into_target_tangent(s):
     assert np.isclose(L.mdot(w, w), L.mdot(v, v), atol=1e-6)  # preserves norm
 
 
+def test_entailment_cone_aperture_and_membership():
+    # the math the entailment-cone scene draws (Ganea et al. 2018), K=-1
+    from hypviz.kernel.charts import Poincare
+    k, ap = -1.0, 0.1
+    psi = lambda r: np.arcsin(np.clip(ap * (1 - r * r) / max(r, 1e-9), -1, 1))
+    assert psi(0.3) > psi(0.7)                             # cone narrows toward the boundary
+    x = Poincare.to_lorentz(np.array([0.4, 0.0]), k)
+    axis = L.logmap(x, L.origin(2, k), k)
+    axis = -axis / np.sqrt(L.mdot(axis, axis))            # outward radial unit tangent
+    def angle(yp):
+        dy = L.logmap(x, Poincare.to_lorentz(np.array(yp), k), k)
+        return np.arccos(np.clip(L.mdot(axis, dy / np.sqrt(L.mdot(dy, dy))), -1, 1))
+    assert angle([0.75, 0.02]) <= psi(0.4)                # a point straight out is entailed
+    assert angle([0.5, 0.45]) > psi(0.4)                  # an off-axis point is not
+
+
 @given(curvatures)
 def test_gyroplane_signed_distance(k):
     # the math the gyroplane scene draws: normal m = unit(w), plane = {y:<y,m>=0},

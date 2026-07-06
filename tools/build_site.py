@@ -18,6 +18,8 @@ SCENES = {
                            "Transport a vector around a geodesic triangle; it returns rotated by the area — vanishing as K → 0."),
     "gyroplane": ("Gyroplanes & gyrovector space",
                   "The hyperbolic MLR decision boundary and its confidence contours; drag a test point to read its logit."),
+    "entailment": ("Entailment cones",
+                   "Each point's cone of descendants; the aperture narrows toward the boundary. Drag to test the is-a relation."),
     "atlas_mammals": ("Embedding Atlas — a mammal taxonomy",
                       "75 taxa embedded by Sarkar's construction; hover for species, click to trace an ancestor chain."),
     "atlas_synth": ("Embedding Atlas — 128D, sampled",

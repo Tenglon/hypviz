@@ -1,7 +1,7 @@
 """The v1 gallery: prebuilt teaching scenes, each assembled from the public
 primitives — they double as API examples."""
-from .scene import (DistanceLabel, Geodesic, Gyroplane, LogVector, MetricCircle, MobiusSum, Point,
-                    Scene, TangentPlane, TransportLoop)
+from .scene import (DistanceLabel, EntailmentCone, Geodesic, Gyroplane, LogVector, MetricCircle,
+                    MobiusSum, Point, Scene, TangentPlane, TransportLoop)
 
 # paper palette (dataviz categorical slots)
 BLUE, AQUA, YELLOW, VIOLET = "#2a78d6", "#1baf7a", "#eda100", "#4a3aa7"
@@ -124,5 +124,24 @@ def gyroplane():
     )
 
 
-GALLERY = {"geodesic": geodesic, "models": models, "exp_log": exp_log,
-           "mobius_add": mobius_add, "parallel_transport": parallel_transport, "gyroplane": gyroplane}
+def entailment():
+    """Scene 7 — entailment cones: each point's cone of 'descendants'; the aperture
+    narrows toward the boundary, so deeper concepts entail fewer things."""
+    x = Point([0.32, 0.12], draggable=True, label="x", color=MUTED)
+    y = Point([0.62, 0.28], draggable=True, label="y", color=MUTED)
+    return Scene(
+        [x, y, EntailmentCone(x, test=y)],
+        curvature_slider=True,
+        legend=[("area", BLUE, "entailment cone of x — everything x is an ancestor of"),
+                ("line", AQUA, "x ⊨ y (y inside the cone)"),
+                ("line", "#e34948", "x ⊭ y (y outside)")],
+        hint=("A hyperbolic entailment cone (Ganea et al. 2018) is a point's set of descendants: it opens "
+              "radially outward with half-aperture ψ = arcsin(K(1−ρ²)/ρ). Drag x outward toward the "
+              "boundary and the cone NARROWS — deep, specific concepts entail fewer things; drag it inward "
+              "and it widens. Drag y in and out of the cone to test the is-a relation x ⊨ y. As K → 0 the "
+              "cones straighten into Euclidean wedges."),
+    )
+
+
+GALLERY = {"geodesic": geodesic, "models": models, "exp_log": exp_log, "mobius_add": mobius_add,
+           "parallel_transport": parallel_transport, "gyroplane": gyroplane, "entailment": entailment}

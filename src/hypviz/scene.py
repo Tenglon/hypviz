@@ -109,6 +109,27 @@ _DEFAULT_HINT = ("Drag the highlighted points — in either view; the 3D view or
                  "infinity, which no isometric embedding can show — dragging stops at the ring in both views.")
 
 
+class EntailmentCone(_Obj):
+    """A hyperbolic entailment cone (Ganea et al. 2018): the cone rooted at `apex`,
+    opening radially outward with half-aperture ψ = arcsin(K(1−ρ²)/ρ) (ρ = the
+    normalized ball norm) — so deeper points have narrower cones. Points inside are
+    'entailed by' the apex (it is their ancestor). The runtime fills the cone and,
+    for the optional `test` point, colors the geodesic to it by membership."""
+
+    def __init__(self, apex, test=None, aperture=0.1, fill="#9ec5f4", edge="#2a78d6",
+                 yes="#1baf7a", no="#e34948"):
+        super().__init__()
+        self.apex, self.test, self.aperture = apex, test, aperture
+        self.colors = {"fill": fill, "edge": edge, "yes": yes, "no": no}
+
+    def to_json(self, k):
+        d = {"id": self.id, "type": "entailment_cone", "apex": self.apex.id,
+             "aperture": self.aperture, "colors": self.colors}
+        if self.test is not None:
+            d["test"] = self.test.id
+        return d
+
+
 class Gyroplane(_Obj):
     """A gyroplane — the hyperbolic decision hyperplane of Ganea et al. (2018):
     the geodesic through `p` normal to the gyrovector w = ⊖p ⊕ (normal handle).

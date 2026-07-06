@@ -62,6 +62,7 @@ export class HypView {
   lines = new Map<string, THREE.Line>();
   arrows = new Map<string, { line: THREE.Line; cone: THREE.Mesh }>();
   planes = new Map<string, THREE.Mesh>();
+  regions = new Map<string, THREE.Mesh>();
   tcircles = new Map<string, THREE.LineLoop>();
   labels = new Map<string, { div: HTMLElement; world: THREE.Vector3 }>();
   clouds: CloudLayer[] = [];
@@ -299,6 +300,20 @@ export class HypView {
       const u1 = this.pushforward(at, e1).setLength(sz), u2 = this.pushforward(at, e2).setLength(sz);
       const c = (s1: number, s2: number) => p0.clone().addScaledVector(u1, s1).addScaledVector(u2, s2);
       mesh.geometry.setFromPoints([c(-1, -1), c(1, -1), c(1, 1), c(-1, -1), c(1, 1), c(-1, 1)]);
+    }
+    for (const [id, { loop, color }] of d.regions) {
+      let mesh = this.regions.get(id);
+      if (!mesh) {
+        mesh = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({
+          color, transparent: true, opacity: 0.16, side: THREE.DoubleSide, depthWrite: false,
+        }));
+        this.scene3.add(mesh);
+        this.regions.set(id, mesh);
+      }
+      const p = loop.map((x) => this.project(x));           // triangle fan from the apex (p[0])
+      const v: number[] = [];
+      for (let i = 1; i < p.length - 1; i++) v.push(p[0].x, p[0].y, p[0].z, p[i].x, p[i].y, p[i].z, p[i + 1].x, p[i + 1].y, p[i + 1].z);
+      mesh.geometry.setAttribute("position", new THREE.Float32BufferAttribute(v, 3));
     }
     for (const [id, { at, r, color }] of d.tcircles) {
       let loop = this.tcircles.get(id);
