@@ -1,5 +1,6 @@
 """hypviz — interactive visualizations of hyperbolic machine learning."""
 from . import colors, embed, kernel, reduce, sample, scenes, stats, synth
+from .aggregate import centroid, centroids
 from .atlas import atlas
 from .hierarchy import Hierarchy
 from .scene import (Cloud, DistanceLabel, EntailmentCone, Geodesic, Gyroplane, LogVector, MetricCircle,
