@@ -1,6 +1,7 @@
 """The v1 gallery: prebuilt teaching scenes, each assembled from the public
 primitives — they double as API examples."""
-from .scene import DistanceLabel, Geodesic, LogVector, MetricCircle, MobiusSum, Point, Scene, TangentPlane
+from .scene import (DistanceLabel, Geodesic, LogVector, MetricCircle, MobiusSum, Point, Scene,
+                    TangentPlane, TransportLoop)
 
 # paper palette (dataviz categorical slots)
 BLUE, AQUA, YELLOW, VIOLET = "#2a78d6", "#1baf7a", "#eda100", "#4a3aa7"
@@ -81,4 +82,24 @@ def mobius_add():
     )
 
 
-GALLERY = {"geodesic": geodesic, "models": models, "exp_log": exp_log, "mobius_add": mobius_add}
+def parallel_transport():
+    """Scene 5 — parallel transport & holonomy: transport a vector around a
+    geodesic triangle; it returns rotated by the angle deficit = the area."""
+    x = Point([0.0, 0.42], draggable=True, label="x", color=MUTED)
+    y = Point([-0.42, -0.28], draggable=True, label="y", color=MUTED)
+    z = Point([0.46, -0.28], draggable=True, label="z", color=MUTED)
+    return Scene(
+        [x, y, z, Geodesic(x, y), Geodesic(y, z), Geodesic(z, x), TransportLoop([x, y, z])],
+        curvature_slider=True,
+        legend=[("arrow", BLUE, "v — initial vector at x"),
+                ("arrow", AQUA, "v parallel-transported along each edge"),
+                ("arrow", "#e34948", "v after the full loop — rotated by the holonomy")],
+        hint=("Parallel-transport the vector around the geodesic triangle x → y → z → x. In hyperbolic "
+              "space it returns ROTATED: the holonomy angle equals the triangle's area = π − (α+β+γ), "
+              "the angle deficit. Drag the vertices to change the area; slide the curvature — as K → 0 the "
+              "rotation vanishes (Euclidean parallel transport), as K grows more negative it grows."),
+    )
+
+
+GALLERY = {"geodesic": geodesic, "models": models, "exp_log": exp_log,
+           "mobius_add": mobius_add, "parallel_transport": parallel_transport}

@@ -12,8 +12,9 @@ export type LogVectorJSON = { id: string; type: "log_vector"; base: string; to: 
 export type MobiusSumJSON = { id: string; type: "mobius_sum"; a: string; b: string; label?: string; color?: string };
 export type TangentPlaneJSON = { id: string; type: "tangent_plane"; at: string };
 export type MetricCircleJSON = { id: string; type: "metric_circle"; at: string; radius: number; color?: string };
+export type TransportLoopJSON = { id: string; type: "transport_loop"; points: string[]; colors: { initial: string; mid: string; returned: string } };
 export type CloudJSON = { id: string; type: "cloud"; spatial: number[][]; colors: string[]; labels?: string[]; parent?: number[]; pruned?: number[] };
-export type ObjJSON = PointJSON | GeodesicJSON | DistanceLabelJSON | LogVectorJSON | MobiusSumJSON | TangentPlaneJSON | MetricCircleJSON | CloudJSON;
+export type ObjJSON = PointJSON | GeodesicJSON | DistanceLabelJSON | LogVectorJSON | MobiusSumJSON | TangentPlaneJSON | MetricCircleJSON | TransportLoopJSON | CloudJSON;
 export type ChartKey = "poincare" | "klein" | "halfplane" | "hemisphere" | "lorentz";
 export type LegendEntry = { kind: "line" | "arrow" | "point" | "circle" | "area"; color: string; label: string };
 export type SceneJSON = { views: { chart: ChartKey }[]; objects: ObjJSON[]; curvature?: number; curvatureSlider?: boolean; legend?: LegendEntry[] };
@@ -78,6 +79,22 @@ export class SceneState {
         d.arrows.set(o.id, { at: pos.get(o.base)!, v: L.logmap(pos.get(o.base)!, pos.get(o.to)!, k), color: o.color });
       else if (o.type === "tangent_plane") d.planes.set(o.id, { at: pos.get(o.at)! });
       else if (o.type === "metric_circle") d.tcircles.set(o.id, { at: pos.get(o.at)!, r: o.radius, color: o.color });
+      else if (o.type === "transport_loop") {
+        const P = o.points.map((id) => pos.get(id)!);
+        const unit = (u: Vec) => L.scale(1 / Math.sqrt(L.mdot(u, u)), u);
+        let v = L.scale(0.7, unit(L.logmap(P[0], P[1], k)));   // initial vector at x, along the first edge
+        const v0 = v;
+        d.arrows.set(`${o.id}:i`, { at: P[0], v: v0, color: o.colors.initial });
+        for (let i = 0; i < P.length; i++) {
+          const b = P[(i + 1) % P.length];
+          v = L.ptransp(P[i], b, v, k);                        // transport along edge i → i+1
+          if (i < P.length - 1) d.arrows.set(`${o.id}:${i}`, { at: b, v, color: o.colors.mid });
+        }
+        d.arrows.set(`${o.id}:r`, { at: P[0], v, color: o.colors.returned });   // returned, rotated
+        const cos = L.mdot(v0, v) / Math.sqrt(L.mdot(v0, v0) * L.mdot(v, v));
+        const deg = (Math.acos(Math.max(-1, Math.min(1, cos))) * 180) / Math.PI;
+        d.labels.set(o.id, { at: P[0], text: `holonomy ${deg.toFixed(1)}°` });
+      }
       else if (o.type === "distance_label")
         d.labels.set(o.id, {
           at: L.geodesic(pos.get(o.from)!, pos.get(o.to)!, 0.5, k),

@@ -14,6 +14,8 @@ SCENES = {
                 "The straight arrow v = log_x(y) and the geodesic exp_x(tv) it unrolls into."),
     "mobius_add": ("Möbius addition is not commutative",
                    "a⊕b lands away from b⊕a; watch the gap close near the origin or as K → 0."),
+    "parallel_transport": ("Parallel transport & holonomy",
+                           "Transport a vector around a geodesic triangle; it returns rotated by the area — vanishing as K → 0."),
     "atlas_mammals": ("Embedding Atlas — a mammal taxonomy",
                       "75 taxa embedded by Sarkar's construction; hover for species, click to trace an ancestor chain."),
     "atlas_synth": ("Embedding Atlas — 128D, sampled",

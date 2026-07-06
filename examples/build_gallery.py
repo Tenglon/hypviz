@@ -6,6 +6,7 @@ TITLES = {
     "models": "Four models, one geometry",
     "exp_log": "exp & log maps: the tangent space",
     "mobius_add": "Möbius addition is not commutative",
+    "parallel_transport": "Parallel transport & holonomy",
 }
 
 for name, build in GALLERY.items():

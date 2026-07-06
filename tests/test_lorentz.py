@@ -54,3 +54,20 @@ def test_ptransp_is_isometric_into_target_tangent(s):
     w = L.ptransp(x, y, v, k)
     assert np.isclose(L.mdot(y, w), 0, atol=1e-7)             # lands in T_y
     assert np.isclose(L.mdot(w, w), L.mdot(v, v), atol=1e-6)  # preserves norm
+
+
+@given(curvatures)
+def test_holonomy_equals_angle_deficit(k):
+    # Gauss-Bonnet: transporting a vector around a geodesic triangle rotates it by
+    # the angle deficit π − (α+β+γ) — the math the parallel-transport scene shows.
+    from hypviz.kernel.charts import Poincare
+    unit = lambda u: u / np.sqrt(L.mdot(u, u))
+    ang = lambda a, b: np.arccos(np.clip(L.mdot(a, b) / np.sqrt(L.mdot(a, a) * L.mdot(b, b)), -1, 1))
+    x, y, z = (Poincare.to_lorentz(np.array(p), k) for p in ([0, 0.35], [-0.4, -0.3], [0.45, -0.3]))
+    v = v0 = unit(L.logmap(x, y, k))
+    for a, b in [(x, y), (y, z), (z, x)]:
+        v = L.ptransp(a, b, v, k)
+    deficit = np.pi - (ang(L.logmap(x, y, k), L.logmap(x, z, k))
+                       + ang(L.logmap(y, x, k), L.logmap(y, z, k))
+                       + ang(L.logmap(z, x, k), L.logmap(z, y, k)))
+    assert np.isclose(ang(v0, v), abs(deficit), atol=1e-6)

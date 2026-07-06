@@ -2,7 +2,8 @@
 from . import colors, embed, kernel, reduce, sample, scenes, stats, synth
 from .atlas import atlas
 from .hierarchy import Hierarchy
-from .scene import Cloud, DistanceLabel, Geodesic, LogVector, MetricCircle, MobiusSum, Point, Scene, TangentPlane
+from .scene import (Cloud, DistanceLabel, Geodesic, LogVector, MetricCircle, MobiusSum, Point, Scene,
+                    TangentPlane, TransportLoop)
 from .tree import Tree
 
 __version__ = "0.0.1"

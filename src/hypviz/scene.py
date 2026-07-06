@@ -109,6 +109,22 @@ _DEFAULT_HINT = ("Drag the highlighted points — in either view; the 3D view or
                  "infinity, which no isometric embedding can show — dragging stops at the ring in both views.")
 
 
+class TransportLoop(_Obj):
+    """Parallel-transport a unit tangent vector around the closed geodesic loop
+    through `points`. The runtime draws the vector at each vertex and the rotated
+    vector back at the start, and labels the holonomy angle (= the loop's area =
+    the angle deficit). Drag the vertices / slide the curvature to change it."""
+
+    def __init__(self, points, initial="#2a78d6", mid="#1baf7a", returned="#e34948"):
+        super().__init__()
+        self.points = points
+        self.colors = {"initial": initial, "mid": mid, "returned": returned}
+
+    def to_json(self, k):
+        return {"id": self.id, "type": "transport_loop",
+                "points": [p.id for p in self.points], "colors": self.colors}
+
+
 class Cloud(_Obj):
     """A bulk point cloud (typically a sampled Hierarchy): batch-rendered points
     with per-point color and hover label, tree edges derived from `parent`, and
