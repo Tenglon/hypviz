@@ -30,6 +30,8 @@ SCENES = {
 STATIC = {
     "atlas_128d": ("Embedding Atlas — trained 128D (real)",
                    "A real 128-D Poincaré embedding of WordNet 'animal' (3999 synsets), trained with gensim, radius-reduced to 2D."),
+    "atlas_centroids": ("Hyperbolic clade centroids (real 128D)",
+                        "The same 128-D embedding with each top clade's hyperbolic centroid (Fréchet mean) overlaid as a labeled marker."),
 }
 
 

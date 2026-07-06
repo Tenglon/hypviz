@@ -16,11 +16,12 @@ from .tree import Tree
 
 class Hierarchy:
     def __init__(self, coords, tree, labels=None, chart="lorentz", k=-1.0,
-                 pruned_leaves=None, rate=1.0):
+                 pruned_leaves=None, rate=1.0, groups=None):
         coords = as_numpy(coords)
         self.coords = coords if chart == "lorentz" else CHARTS[chart].to_lorentz(coords, k)
         self.tree = tree if isinstance(tree, Tree) else Tree(tree)
         self.labels = None if labels is None else np.asarray(labels)
+        self.groups = None if groups is None else np.asarray(groups)
         self.k = k
         self.pruned_leaves = np.zeros(len(self.tree), int) if pruned_leaves is None else np.asarray(pruned_leaves)
         self.rate = rate
@@ -49,7 +50,8 @@ class Hierarchy:
         parent = [-1 if self.tree.parent[i] < 0 else int(remap[self.tree.parent[i]]) for i in idx]
         return Hierarchy(self.coords[idx], Tree(parent),
                          None if self.labels is None else self.labels[idx],
-                         k=self.k, pruned_leaves=s.pruned_leaves[idx], rate=s.rate)
+                         k=self.k, pruned_leaves=s.pruned_leaves[idx], rate=s.rate,
+                         groups=None if self.groups is None else self.groups[idx])
 
     def reduce(self, dim=2, method="radial"):
         """Project to `dim` dimensions.
@@ -73,7 +75,7 @@ class Hierarchy:
         else:
             lo, _ = _reduce.tangent_pca(self.coords, dim, self.k)
         return Hierarchy(lo, self.tree, self.labels, k=self.k,
-                         pruned_leaves=self.pruned_leaves, rate=self.rate)
+                         pruned_leaves=self.pruned_leaves, rate=self.rate, groups=self.groups)
 
     def _tree_layout(self):
         """H² layout: real hyperbolic radius from the embedding, angular sector per

@@ -2,9 +2,12 @@
 hierarchy → a self-contained interactive Scene in one call. Wraps Hierarchy
 (sample → reduce), color encoding, and honest disclosure of BOTH the sampling
 (pruned-leaf counts) and the projection (which reduction, and its trade-off)."""
+import numpy as np
+
 from . import colors
+from .aggregate import centroids as _centroids
 from .hierarchy import Hierarchy
-from .scene import Cloud, Scene
+from .scene import Cloud, Point, Scene
 from .tree import Tree
 
 _ENCODE = {
@@ -14,12 +17,32 @@ _ENCODE = {
 }
 
 
+def _resolve_groups(tree, labels, show_centroids):
+    """A per-node group array from show_centroids: an explicit array, 'depth', or
+    'clade' (the depth-1 ancestor's label)."""
+    if not isinstance(show_centroids, str):
+        return np.asarray(show_centroids)
+    if show_centroids == "depth":
+        return tree.depth().astype(str)
+    depth = tree.depth()                                  # 'clade' = top-level (depth-1) ancestor
+    def top(i):
+        while depth[i] > 1 and tree.parent[i] >= 0:
+            i = int(tree.parent[i])
+        return str(labels[i]) if labels is not None else str(i)
+    return np.array([top(i) for i in range(len(tree))])
+
+
 def atlas(coords, edges, labels=None, *, chart="lorentz", k=-1.0, color_by="depth",
-          budget=10_000, reduction="radial", views=("poincare", "lorentz"), seed=0):
+          budget=10_000, reduction="radial", views=("poincare", "lorentz"),
+          show_centroids=None, max_centroids=12, seed=0):
     """Return a Scene: sampled, 2D-reduced, colored point cloud with hover/ancestor
-    interaction. `edges` is a Tree or a list of (parent, child) pairs."""
+    interaction. `edges` is a Tree or a list of (parent, child) pairs. `show_centroids`
+    ('depth' | 'clade' | a per-node label array) overlays each group's hyperbolic
+    centroid (the Fréchet mean of its drawn points) as a labeled marker; only the
+    `max_centroids` largest groups are shown (disclosed if capped)."""
     tree = edges if isinstance(edges, Tree) else Tree.from_edges(edges, labels=labels)
-    full = Hierarchy(coords, tree, labels, chart=chart, k=k)
+    groups = None if show_centroids is None else _resolve_groups(tree, labels, show_centroids)
+    full = Hierarchy(coords, tree, labels, chart=chart, k=k, groups=groups)
     orig_dim, n_full = full.dim, len(full)
     h = full.sample(budget, seed=seed).reduce(2, reduction)
 
@@ -38,8 +61,19 @@ def atlas(coords, edges, labels=None, *, chart="lorentz", k=-1.0, color_by="dept
                "horo": "horospherical / Busemann (HoroPCA, Chami et al. 2021)",
                "tangent": "tangent-space PCA"}[reduction]
         notes.append(f"{orig_dim}D → 2D ({how})")
+    objs, legend = [cloud], [("point", "#3987e5", f"nodes — colored by {leg}")]
+    if h.groups is not None:                              # overlay each group's hyperbolic centroid
+        uniq, counts = np.unique(h.groups, return_counts=True)
+        keep = uniq[np.argsort(-counts)[:max_centroids]]  # the largest groups only
+        glabels, gc = _centroids(h.coords[np.isin(h.groups, keep)], h.groups[np.isin(h.groups, keep)], chart="lorentz", k=k)
+        for lab, c in zip(glabels, gc):
+            objs.append(Point(c[1:], chart="spatial", label=str(lab), color="#0b0b0b"))
+        what = show_centroids if isinstance(show_centroids, str) else "group"
+        legend.append(("point", "#0b0b0b", f"hyperbolic centroid per {what}"))
+        if len(uniq) > len(keep):
+            notes.append(f"centroids: the {len(keep)} largest of {len(uniq)} {what}s")
+
     hint = "Hover a node for its label and pruned-leaf count; click a node to highlight its ancestor chain."
     if notes:
         hint += "  " + " · ".join(notes) + "."
-    return Scene([cloud], views=views, curvature=k,
-                 legend=[("point", "#3987e5", f"nodes — colored by {leg}")], hint=hint)
+    return Scene(objs, views=views, curvature=k, legend=legend, hint=hint)
