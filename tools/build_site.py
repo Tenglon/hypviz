@@ -1,4 +1,5 @@
 """Build the GitHub Pages site: docs/index.html + docs/gallery/*.html."""
+import importlib.util
 from pathlib import Path
 
 from hypviz.scenes import GALLERY
@@ -13,7 +14,18 @@ SCENES = {
                 "The straight arrow v = log_x(y) and the geodesic exp_x(tv) it unrolls into."),
     "mobius_add": ("Möbius addition is not commutative",
                    "a⊕b lands away from b⊕a; watch the gap close near the origin or as K → 0."),
+    "atlas_mammals": ("Embedding Atlas — a mammal taxonomy",
+                      "75 taxa embedded by Sarkar's construction; hover for species, click to trace an ancestor chain."),
+    "atlas_synth": ("Embedding Atlas — 128D, sampled",
+                    "A 30k-node synthetic embedding, radius-reduced to 2D and sampled to 4k with honest pruned counts."),
 }
+
+
+def _example_scene(mod_name):
+    spec = importlib.util.spec_from_file_location(mod_name, ROOT / "examples" / f"{mod_name}.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod.build_scene()
 
 CARD = """    <a class="card" href="gallery/{name}.html">
       <h2>{title}</h2>
@@ -46,9 +58,9 @@ INDEX = """<!doctype html>
 <div class="wrap">
   <h1>hypviz</h1>
   <p class="tag">Interactive visualizations of hyperbolic machine learning — drag points on the Poincaré disk
-  and watch the Lorentz hyperboloid respond in real time. Every scene is a self-contained page: save it,
-  email it, embed it. Built from a dimension-agnostic Lorentz-hub kernel with configurable curvature and
-  publication-grade SVG export.</p>
+  and watch the Lorentz hyperboloid respond in real time, or drop a real high-dimensional embedding into the
+  Embedding Atlas (radius-preserving reduction, hierarchy-aware sampling, hover + ancestor-chain interaction).
+  Every scene is a self-contained page: save it, email it, embed it.</p>
   <div class="grid">
 {cards}
   </div>
@@ -59,8 +71,9 @@ INDEX = """<!doctype html>
 """
 
 out = ROOT / "docs" / "gallery"
-for name, build in GALLERY.items():
-    build().to_html(out / f"{name}.html", title=SCENES[name][0])
+for name in SCENES:
+    scene = GALLERY[name]() if name in GALLERY else _example_scene(name)
+    scene.to_html(out / f"{name}.html", title=SCENES[name][0])
     print(f"wrote docs/gallery/{name}.html")
 
 cards = "\n".join(CARD.format(name=n, title=t, blurb=b) for n, (t, b) in SCENES.items())

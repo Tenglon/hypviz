@@ -1,4 +1,4 @@
-from hypviz import atlas, stats, synth
+from hypviz import Tree, atlas, embed, stats, synth
 from hypviz.scene import Cloud
 
 
@@ -35,6 +35,26 @@ def test_atlas_from_edge_list_and_2d_input_skips_projection():
     scene = atlas(coords2d, t.edges(), budget=9999)
     assert "→ 2D" not in scene.hint          # already 2D
     assert "showing" not in scene.hint       # budget over tree → no sampling note
+
+
+def test_tree_from_paths_merges_shared_prefixes():
+    paths = [("Carnivora", "Felidae", "P. leo"), ("Carnivora", "Felidae", "F. catus"),
+             ("Carnivora", "Canidae", "C. lupus"), ("Primates", "Hominidae", "H. sapiens")]
+    t = Tree.from_paths(paths, root_name="Mammalia")
+    # 1 root + 2 orders + 3 families + 4 species = 10 nodes; the shared "Felidae" is one node
+    assert len(t) == 10
+    assert list(t.labels[[t.root]]) == ["Mammalia"]
+    leaves = [i for i in range(len(t)) if not t.children[i]]
+    assert len(leaves) == 4 and all(t.depth()[i] == 3 for i in leaves)
+
+
+def test_atlas_from_sarkar_taxonomy_end_to_end(tmp_path):
+    paths = [("A", "A1", "x"), ("A", "A1", "y"), ("A", "A2", "z"), ("B", "B1", "w")]
+    tree = Tree.from_paths(paths)
+    coords = embed.sarkar(tree, tau=1.1)                 # 2D Poincaré, no reduction
+    scene = atlas(coords, tree, labels=tree.labels, chart="poincare")
+    out = scene.to_html(tmp_path / "tax.html", title="tax")
+    assert out.stat().st_size > 50_000
 
 
 def test_stats_figures_render():

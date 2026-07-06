@@ -24,9 +24,9 @@
 <div class="wrap">
   <h1>hypviz</h1>
   <p class="tag">Interactive visualizations of hyperbolic machine learning — drag points on the Poincaré disk
-  and watch the Lorentz hyperboloid respond in real time. Every scene is a self-contained page: save it,
-  email it, embed it. Built from a dimension-agnostic Lorentz-hub kernel with configurable curvature and
-  publication-grade SVG export.</p>
+  and watch the Lorentz hyperboloid respond in real time, or drop a real high-dimensional embedding into the
+  Embedding Atlas (radius-preserving reduction, hierarchy-aware sampling, hover + ancestor-chain interaction).
+  Every scene is a self-contained page: save it, email it, embed it.</p>
   <div class="grid">
     <a class="card" href="gallery/geodesic.html">
       <h2>Geodesic & distance in H²</h2>
@@ -43,6 +43,14 @@
     <a class="card" href="gallery/mobius_add.html">
       <h2>Möbius addition is not commutative</h2>
       <p>a⊕b lands away from b⊕a; watch the gap close near the origin or as K → 0.</p>
+    </a>
+    <a class="card" href="gallery/atlas_mammals.html">
+      <h2>Embedding Atlas — a mammal taxonomy</h2>
+      <p>75 taxa embedded by Sarkar's construction; hover for species, click to trace an ancestor chain.</p>
+    </a>
+    <a class="card" href="gallery/atlas_synth.html">
+      <h2>Embedding Atlas — 128D, sampled</h2>
+      <p>A 30k-node synthetic embedding, radius-reduced to 2D and sampled to 4k with honest pruned counts.</p>
     </a>
   </div>
   <footer>hypviz · MIT · Python + three.js</footer>

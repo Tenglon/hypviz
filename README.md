@@ -31,18 +31,49 @@ scene.to_svg("figure1.svg", view="poincare") # paper figure
 scene.to_svg("figure2.svg", state="scene-state.json")  # reproduce a browser arrangement
 ```
 
-## Gallery (v1 scenes)
+## Gallery
 
-Prebuilt in `hypviz.scenes`; built into `docs/` by `tools/build_site.py` (GitHub Pages ready):
+Prebuilt scenes, built into `docs/` by `tools/build_site.py` (GitHub Pages ready):
+
+**Teaching scenes** (`hypviz.scenes`) — each has a **curvature slider** (all views
+react: the bowl flattens as K → 0, the unit-distance rings migrate outward) and a
+**download state** button for the SVG round-trip:
 
 1. **Geodesic & distance** — the basic objects, live in two models
 2. **Four models, one geometry** — the same triangle in Poincaré / Klein / half-plane / Lorentz
-3. **exp & log maps** — the tangent-space arrow and the geodesic it unrolls into
+3. **exp & log maps** — the tangent-space arrow, shown on the disk, hemisphere, and hyperboloid
 4. **Möbius addition** — a⊕b ≠ b⊕a, with the gap measured live
 
-Every page has a **curvature slider** (all views react: the bowl flattens as K → 0,
-the unit-distance rings migrate outward) and a **download state** button for the
-SVG round-trip.
+**Embedding Atlas** (`hypviz.atlas`) — real hyperbolic embeddings for qualitative analysis:
+
+5. **Mammal taxonomy** — 75 taxa embedded by Sarkar's construction
+6. **Synthetic 128D** — a 30k-node embedding, radius-reduced to 2D and sampled to 4k
+
+## Embedding Atlas — analyzing real embeddings
+
+```python
+from hypviz import atlas, stats
+
+# coords: (N, d+1) Lorentz (or Poincaré via chart=); edges: (parent, child) pairs
+atlas(coords, edges, labels=names, color_by="depth", budget=10_000) \
+    .to_html("atlas.html")               # sampled, 2D-reduced, interactive
+
+stats.norm_hist(coords).savefig("norms.svg")          # full-data analysis figures
+stats.depth_norm(coords, depths).savefig("depth.svg") # the depth≈radius staircase
+```
+
+- **High-dimensional in, honest 2D out.** >2D embeddings are reduced with a
+  **radius-preserving** projection (default for hierarchies) that keeps each node's
+  distance-to-root *exact* — so the depth↔radius signal survives, where plain
+  tangent-space PCA loses it. The projection and its trade-off are stated in the legend.
+- **Scale by sampling, disclose the rest.** `budget` caps the drawn nodes with a
+  hierarchy-aware sampler (ancestor closure guaranteed); every hover tooltip reports
+  the `+N leaves not shown` under that node — nothing is silently dropped.
+- **Interact.** Hover for labels + pruned counts; click a node to highlight its
+  ancestor chain to the root, synced across every view.
+- **Any taxonomy.** `Tree.from_paths(rows)` turns a rank table (GBIF / iNaturalist /
+  BioCLIP-TreeOfLife export) into a tree; `examples/atlas_taxonomy_csv.py` runs the
+  whole pipeline on a CSV.
 
 ## Architecture
 
@@ -76,11 +107,10 @@ python tools/build_site.py                    # rebuild docs/ gallery
 
 ## Roadmap
 
-v2 (requirements in `docs/v2-viz-survey.md`, a verified survey of visualization
-practice in 2021–2026 hyperbolic ML papers): embedding scatter/`PointCloud` at
-scale, tree embeddings with geodesic edges, gyroplane decision boundaries,
-entailment cones, HoroPCA/CO-SNE projection adapters, norm histograms, parallel
-transport scene, and a true **H³ Poincaré-ball 3D view** (the kernel is already
-dimension-agnostic) for volumetric embedding scenes.
+v2.1+ (requirements in `docs/v2-viz-survey.md`, a verified survey of visualization
+practice in 2021–2026 hyperbolic ML papers): HoroPCA / CO-SNE reduction adapters,
+gyroplane decision boundaries, entailment cones, distortion & δ-hyperbolicity
+figures, a parallel-transport scene, and a true **H³ Poincaré-ball 3D view** (the
+kernel is already dimension-agnostic) for volumetric embedding scenes.
 
 MIT © Teng Long

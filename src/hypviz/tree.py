@@ -9,6 +9,23 @@ import numpy as np
 
 class Tree:
     @classmethod
+    def from_paths(cls, paths, root_name="root"):
+        """Build a tree from root-to-leaf label paths (e.g. taxonomy rows: one
+        path per row of ranks). Shared prefixes merge into shared nodes. Returns a
+        Tree whose `labels[i]` is node i's own name."""
+        parent, name, index = [-1], [root_name], {(): 0}
+        for path in paths:
+            key = ()
+            for label in path:
+                child = key + (label,)
+                if child not in index:
+                    index[child] = len(parent)
+                    parent.append(index[key])
+                    name.append(label)
+                key = child
+        return cls(parent, labels=np.array(name, dtype=object))
+
+    @classmethod
     def from_edges(cls, edges, n=None, labels=None):
         """Build from (parent, child) edges; node count inferred if not given."""
         edges = [(int(u), int(v)) for u, v in edges]
