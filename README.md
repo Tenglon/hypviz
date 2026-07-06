@@ -69,6 +69,9 @@ stats.depth_norm(coords, depths).savefig("depth.svg") # the depth≈radius stair
     trained Poincaré models) can collapse angularly into a wedge.
   - `tree` — radius = distance-to-root, angle assigned by the tree (a Sarkar-style
     spread). Always legible, fills the disk; the angle is a *layout*, not embedding-derived.
+  - `horo` — horospherical / Busemann reduction (HoroPCA, Chami et al. 2021):
+    projects via Busemann coordinates rather than the tangent linearization
+    (k = -1). A principled alternative to tangent PCA; the benefit is data-dependent.
   - `tangent` — plain tangent-space PCA (no privileged radius).
 - **Scale by sampling, disclose the rest.** `budget` caps the drawn nodes with a
   hierarchy-aware sampler (ancestor closure guaranteed); every hover tooltip reports

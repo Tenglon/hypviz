@@ -14,8 +14,9 @@ preserving the radius exactly; it is the atlas default for `Hierarchy` inputs.
 """
 import numpy as np
 
-from .kernel import lorentz as L
+from .kernel import lorentz as L, mobius as M
 from .kernel.adapters import as_numpy
+from .kernel.charts import Poincare
 
 
 def tangent_pca(xs, dim=2, k=-1.0):
@@ -59,4 +60,29 @@ def radial_pca(xs, dim=2, k=-1.0, center=None):
     var = s**2
     info = {"center": c, "radius_preserved": True,
             "angular_variance_ratio": float(var[:dim].sum() / var.sum())}
+    return pts, info
+
+
+def horo_pca(coords, dim=2, k=-1.0):
+    """Horospherical reduction, after Chami et al. (2021, HoroPCA). Center the data
+    at its Fréchet mean (Möbius), pick `dim` boundary ideal directions, and reduce
+    each point to its Busemann coordinates B_p(x) = ln(‖p−x‖²/(1−‖x‖²)) along them —
+    a horospherical projection rather than the tangent linearization. A principled
+    alternative to `tangent_pca` whose benefit is data-dependent (it helps most when
+    the tangent linearization is poor). This is the Busemann-coordinate form used in
+    the paper's whitening application; the full method adds a greedy geodesic-hull
+    submanifold projection. (Poincaré-ball math ⇒ k = -1.)"""
+    if not np.isclose(k, -1.0):
+        raise ValueError("horo_pca currently supports curvature k = -1")
+    xs = as_numpy(coords)
+    u0 = Poincare.from_lorentz(xs, k)                                    # unit-ball coords
+    mean = Poincare.from_lorentz(L.frechet_mean(xs, k)[None], k)[0]
+    u = M.add(np.broadcast_to(-mean, u0.shape), u0, k)                   # center: mean → origin
+    _, s, wt = np.linalg.svd(u - u.mean(0), full_matrices=False)         # ideal directions ≈ top PCs
+    Q = wt[:dim]
+    sq = np.sum(u * u, -1)
+    busemann = np.stack([np.log(np.maximum(1 - sq, 1e-12)) - np.log(np.sum((q - u) ** 2, -1)) for q in Q], -1)
+    busemann = np.clip(busemann, -6, 6)                                 # keep off the ideal boundary
+    pts = L.expmap(L.origin(dim, k), np.concatenate([np.zeros((len(busemann), 1)), busemann], -1), k)
+    info = {"directions": Q, "explained_variance_ratio": float((s[:dim] ** 2).sum() / (s**2).sum())}
     return pts, info

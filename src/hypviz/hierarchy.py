@@ -59,6 +59,8 @@ class Hierarchy:
         'tree'    — radius = distance-to-root (exact), angle from the tree layout:
                     legible spread (clades fan across the disk); the angle is a
                     layout, not embedding-derived.
+        'horo'    — horospherical / Busemann reduction (HoroPCA, Chami et al. 2021):
+                    preserves hyperbolic structure better than tangent PCA (k=-1).
         'tangent' — plain tangent-space PCA (no privileged radius)."""
         if self.dim <= dim and method != "tree":
             lo = self.coords
@@ -66,6 +68,8 @@ class Hierarchy:
             lo = self._tree_layout()
         elif method == "radial":
             lo, _ = _reduce.radial_pca(self.coords, dim, self.k, center=self.coords[self.tree.root])
+        elif method == "horo":
+            lo, _ = _reduce.horo_pca(self.coords, dim, self.k)
         else:
             lo, _ = _reduce.tangent_pca(self.coords, dim, self.k)
         return Hierarchy(lo, self.tree, self.labels, k=self.k,

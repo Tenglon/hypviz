@@ -35,6 +35,7 @@ def atlas(coords, edges, labels=None, *, chart="lorentz", k=-1.0, color_by="dept
     if orig_dim > 2 or reduction == "tree":
         how = {"radial": "radius-preserving, depth↔radius exact",
                "tree": "radius = embedding distance-to-root; angle = tree layout",
+               "horo": "horospherical / Busemann (HoroPCA, Chami et al. 2021)",
                "tangent": "tangent-space PCA"}[reduction]
         notes.append(f"{orig_dim}D → 2D ({how})")
     hint = "Hover a node for its label and pruned-leaf count; click a node to highlight its ancestor chain."

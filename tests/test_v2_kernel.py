@@ -50,6 +50,29 @@ def test_tangent_pca_output_on_manifold():
     assert np.allclose(L.mdot(pts, pts), -1, atol=1e-7)
 
 
+def test_horo_pca_is_stable_and_structure_preserving():
+    # HoroPCA (Busemann coords) must stay on-manifold, never run off to the ideal
+    # boundary, and preserve hyperbolic distances reasonably. (It is not always
+    # better than tangent PCA — the advantage is data-dependent.)
+    t = synth.taxonomy(1200, seed=6)
+    c = synth.diffuse(t, dim=64, k=K, seed=6)[:200]
+    horo = reduce.horo_pca(c, dim=2, k=K)[0]
+    assert np.allclose(L.mdot(horo, horo), -1, atol=1e-7) and np.isfinite(horo).all()
+    iu = np.triu_indices(len(c), 1)
+    dh = L.dist(c[:, None], c[None], K)[iu]
+    assert np.corrcoef(dh, L.dist(horo[:, None], horo[None], K)[iu])[0, 1] > 0.5
+
+
+def test_frechet_mean_stays_on_manifold_for_spread_points():
+    # regression: the un-damped Karcher iteration drifted off the hyperboloid for
+    # widely-spread points, silently corrupting every reduction that centers on it.
+    c = synth.diffuse(synth.taxonomy(3000, seed=0), dim=64, k=K, seed=0)
+    sub = c[np.random.default_rng(0).choice(len(c), 220, replace=False)]
+    m = L.frechet_mean(sub, K)
+    assert np.isclose(L.mdot(m, m), -1, atol=1e-6)
+    assert L.tangent_basis(m, K).shape[0] == 64        # full-rank tangent basis
+
+
 def test_radial_pca_preserves_depth_and_radius():
     # radial_pca preserves radius (hence depth) REGARDLESS of intrinsic dimension,
     # which is why it is the hierarchy default — plain tangent PCA only preserves

@@ -67,13 +67,18 @@ def geodesic(x, y, t, k=-1.0):
     return expmap(x, np.asarray(t)[..., None] * logmap(x, y, k), k)
 
 
-def frechet_mean(xs, k=-1.0, weights=None, iters=100):
-    """Weighted Karcher mean of points xs (N, n+1): iterate m <- exp_m(mean w_i log_m x_i)."""
+def frechet_mean(xs, k=-1.0, weights=None, iters=100, step=0.5):
+    """Weighted Karcher mean of points xs (N, n+1): damped iterate
+    m <- exp_m(step * mean w_i log_m x_i), reprojected onto the hyperboloid each
+    step (the raw iteration overshoots and drifts off the manifold for
+    widely-spread points)."""
+    R = _R(k)
     w = np.ones(len(xs)) if weights is None else np.asarray(weights, float)
     w = (w / w.sum())[:, None]
     m = xs[int(np.argmax(w))].copy()
     for _ in range(iters):
-        m = expmap(m, np.sum(w * logmap(m, xs, k), 0), k)
+        m = expmap(m, step * np.sum(w * logmap(m, xs, k), 0), k)
+        m = m * R / np.sqrt(-mdot(m, m, True))     # project back onto {<m,m>=-R^2}
     return m
 
 
