@@ -9,6 +9,7 @@
  * Static geometry is rebuilt when the curvature changes. */
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { CloudLayer } from "./cloud";
 import { CHARTS } from "../kernel/charts";
 import * as L from "../kernel/lorentz";
 import { Vec } from "../kernel/lorentz";
@@ -63,6 +64,9 @@ export class HypView {
   planes = new Map<string, THREE.Mesh>();
   tcircles = new Map<string, THREE.LineLoop>();
   labels = new Map<string, { div: HTMLElement; world: THREE.Vector3 }>();
+  clouds: CloudLayer[] = [];
+  tooltipEl?: HTMLElement;
+  onPick?: (i: number) => void;
   raycaster = new THREE.Raycaster();
   dragId: string | null = null;
 
@@ -91,6 +95,9 @@ export class HypView {
       this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
     }
     this.setCurvature(state.k);
+    for (const o of state.scene.objects)
+      if (o.type === "cloud")
+        this.clouds.push(new CloudLayer(this.scene3, o, (x) => this.project(x), this.kNow, this.is3D ? 5 : 6));
 
     window.addEventListener("resize", () => this.resize());
     const dom = this.renderer.domElement;
@@ -345,6 +352,10 @@ export class HypView {
     return new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
   }
 
+  private pickR() {
+    return (this.is3D ? 0.06 : 0.03) * this.R;
+  }
+
   private onDown(e: PointerEvent) {
     this.raycaster.setFromCamera(this.ndc(e), this.camera);
     const hit = this.raycaster.intersectObjects([...this.spheres.values()])
@@ -353,11 +364,33 @@ export class HypView {
       this.dragId = (hit.object.userData as { id: string }).id;
       if (this.controls) this.controls.enabled = false;
       this.renderer.domElement.setPointerCapture(e.pointerId);
+      return;
+    }
+    if (this.clouds.length) {                       // click a node → highlight its ancestor chain
+      for (const cl of this.clouds) {
+        const i = cl.pick(this.raycaster, this.pickR());
+        if (i >= 0) return this.onPick?.(i);
+      }
+      this.onPick?.(-1);                            // click empty space → clear selection
     }
   }
 
+  private hover(e: PointerEvent) {
+    if (!this.clouds.length || !this.tooltipEl) return;
+    this.raycaster.setFromCamera(this.ndc(e), this.camera);
+    for (const cl of this.clouds) {
+      const i = cl.pick(this.raycaster, this.pickR());
+      if (i >= 0) {
+        this.tooltipEl.textContent = cl.tooltip(i);
+        Object.assign(this.tooltipEl.style, { display: "block", left: `${e.clientX + 12}px`, top: `${e.clientY + 12}px` });
+        return;
+      }
+    }
+    this.tooltipEl.style.display = "none";
+  }
+
   private onMove(e: PointerEvent) {
-    if (!this.dragId) return;
+    if (!this.dragId) return this.hover(e);
     this.raycaster.setFromCamera(this.ndc(e), this.camera);
     let spatial: Vec | undefined;
     if (this.is3D) {
@@ -447,6 +480,12 @@ export function mount(root: HTMLElement, scene: SceneJSON) {
   root.before(bar);
   const views = scene.views.map((v) => new HypView(root, v.chart, state));
   views.forEach((v) => v.resize()); // re-measure: flex widths settle only once all views exist
+  // shared tooltip + selection broadcast, so clouds in every view stay in sync
+  const tip = document.createElement("div");
+  tip.className = "hyptooltip";
+  document.body.appendChild(tip);
+  const broadcast = (i: number) => views.forEach((v) => v.clouds.forEach((cl) => cl.select(i)));
+  views.forEach((v) => { v.tooltipEl = tip; v.onPick = broadcast; });
   (window as unknown as { __hypviz: object }).__hypviz = { state, views }; // console/debug access
   const rerender = () => {
     const d = state.derive();

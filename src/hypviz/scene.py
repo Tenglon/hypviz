@@ -8,6 +8,8 @@ import json
 from itertools import count
 from pathlib import Path
 
+import numpy as np
+
 from .kernel.adapters import as_numpy
 from .kernel.charts import CHARTS
 
@@ -105,6 +107,32 @@ class MetricCircle(_Obj):
 _DEFAULT_HINT = ("Drag the highlighted points — in either view; the 3D view orbits and zooms with the mouse. "
                  "The gray ring marks the edge of the 3D window: the disk beyond it (faint grid) continues to "
                  "infinity, which no isometric embedding can show — dragging stops at the ring in both views.")
+
+
+class Cloud(_Obj):
+    """A bulk point cloud (typically a sampled Hierarchy): batch-rendered points
+    with per-point color and hover label, tree edges derived from `parent`, and
+    per-node pruned-leaf counts for honest hover tooltips ('+N leaves not shown').
+    `coords` are 2D Lorentz points (N, 3)."""
+
+    def __init__(self, coords, colors, labels=None, parent=None, pruned=None):
+        super().__init__()
+        self.spatial = as_numpy(coords)[:, 1:]
+        self.colors = list(colors)
+        self.labels = None if labels is None else [str(x) for x in labels]
+        self.parent = None if parent is None else as_numpy(parent).astype(int)
+        self.pruned = None if pruned is None else as_numpy(pruned).astype(int)
+
+    def to_json(self, k):
+        d = {"id": self.id, "type": "cloud",
+             "spatial": np.round(self.spatial, 6).tolist(), "colors": self.colors}
+        if self.labels is not None:
+            d["labels"] = self.labels
+        if self.parent is not None:
+            d["parent"] = self.parent.tolist()
+        if self.pruned is not None:
+            d["pruned"] = self.pruned.tolist()
+        return d
 
 
 class Scene:
