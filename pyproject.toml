@@ -14,6 +14,7 @@ dependencies = ["numpy>=1.21", "matplotlib>=3.5"]
 
 [project.optional-dependencies]
 dev = ["pytest", "hypothesis"]
+examples = ["nltk", "gensim"]        # real-data demos: WordNet + trained Poincaré embeddings
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/hypviz"]
