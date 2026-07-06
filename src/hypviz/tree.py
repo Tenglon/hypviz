@@ -8,6 +8,16 @@ import numpy as np
 
 
 class Tree:
+    @classmethod
+    def from_edges(cls, edges, n=None, labels=None):
+        """Build from (parent, child) edges; node count inferred if not given."""
+        edges = [(int(u), int(v)) for u, v in edges]
+        n = n or (max(max(e) for e in edges) + 1)
+        parent = np.full(n, -1)
+        for u, v in edges:
+            parent[v] = u
+        return cls(parent, labels)
+
     def __init__(self, parent, labels=None):
         self.parent = np.asarray(parent, int)
         self.labels = labels
