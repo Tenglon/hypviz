@@ -20,6 +20,12 @@ SCENES = {
                     "A 30k-node synthetic embedding, radius-reduced to 2D and sampled to 4k with honest pruned counts."),
 }
 
+# pre-built static pages (need external data/deps to regenerate, so committed as artifacts)
+STATIC = {
+    "atlas_128d": ("Embedding Atlas — trained 128D (real)",
+                   "A real 128-D Poincaré embedding of WordNet 'animal' (3999 synsets), trained with gensim, radius-reduced to 2D."),
+}
+
 
 def _example_scene(mod_name):
     spec = importlib.util.spec_from_file_location(mod_name, ROOT / "examples" / f"{mod_name}.py")
@@ -75,7 +81,9 @@ for name in SCENES:
     scene = GALLERY[name]() if name in GALLERY else _example_scene(name)
     scene.to_html(out / f"{name}.html", title=SCENES[name][0])
     print(f"wrote docs/gallery/{name}.html")
+for name in STATIC:                                   # pre-committed; regenerate via examples/train_128d.py
+    print(f"kept static docs/gallery/{name}.html" if (out / f"{name}.html").exists() else f"MISSING {name}.html")
 
-cards = "\n".join(CARD.format(name=n, title=t, blurb=b) for n, (t, b) in SCENES.items())
+cards = "\n".join(CARD.format(name=n, title=t, blurb=b) for n, (t, b) in {**SCENES, **STATIC}.items())
 (ROOT / "docs" / "index.html").write_text(INDEX.format(cards=cards))
 print("wrote docs/index.html")
