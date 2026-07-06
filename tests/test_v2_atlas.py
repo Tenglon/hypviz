@@ -61,3 +61,15 @@ def test_stats_figures_render():
     t, coords = _data(n=2000, dim=32, seed=3)
     assert len(stats.norm_hist(coords).axes[0].patches) > 0
     assert len(stats.depth_norm(coords, t.depth()).axes[0].get_lines()) > 0
+
+
+def test_stats_honor_input_chart():
+    # Sarkar returns Poincaré coords; feeding them as Lorentz collapses every norm to 0
+    tree = Tree.from_paths([("A", "A1", "x"), ("A", "A1", "y"), ("A", "A2", "z"), ("B", "B1", "w")])
+    poincare = embed.sarkar(tree, tau=1.0)
+    n_norms = len(stats.norm_hist(poincare, chart="poincare").axes[0].patches)
+    assert n_norms > 0
+    # depth↔norm must actually vary with depth (the bug made it flat at 0)
+    ax = stats.depth_norm(poincare, tree.depth(), chart="poincare").axes[0]
+    medians = [line.get_ydata()[0] for line in ax.get_lines() if len(line.get_ydata())]
+    assert max(medians) > 0.5
