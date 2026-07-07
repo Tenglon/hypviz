@@ -3,6 +3,7 @@ staples. Computed on the FULL embedding, never the visualization sample, so the
 numbers are exact even when the interactive scene shows a subsample."""
 import numpy as np
 from matplotlib.figure import Figure
+from matplotlib.patches import Circle
 
 from .colors import CAT
 from .kernel import lorentz as L
@@ -92,6 +93,89 @@ def distortion(coords, tree, k=-1.0, chart="lorentz", n_pairs=4000, size=(5.2, 3
     ax.set_xlabel("tree (graph) distance")
     ax.set_ylabel("embedding hyperbolic distance")
     ax.legend(fontsize=8, frameon=False)
+    fig.tight_layout()
+    return fig
+
+
+_BW = {"hyperbolic": 0.6, "euclidean": 0.12, "cosine": 0.15}   # kernel bandwidths
+
+
+def _chart_grid(chart, R, grid):
+    """Grid of chart coordinates + a validity mask + the imshow extent/shape."""
+    if chart == "halfplane":
+        gx, gy = np.meshgrid(np.linspace(-2 * R, 2 * R, grid), np.linspace(0.03 * R, 3 * R, grid))
+        C = np.stack([gx.ravel(), gy.ravel()], -1)
+        return C, np.ones(len(C), bool), (-2 * R, 2 * R, 0, 3 * R)
+    a = np.linspace(-R, R, grid)
+    gx, gy = np.meshgrid(a, a)
+    C = np.stack([gx.ravel(), gy.ravel()], -1)
+    return C, np.sum(C**2, 1) < (0.995 * R) ** 2, (-R, R, -R, R)
+
+
+def _density_field(chart, metric, pts_lorentz, R, k, grid):
+    """Normalized kernel density over `chart`'s grid; hyperbolic uses the intrinsic
+    geodesic distance (same for every model), euclidean/cosine the chart coords."""
+    C, valid, extent = _chart_grid(chart, R, grid)
+    field = np.full(len(C), np.nan)
+    if metric == "hyperbolic":
+        gl = CHARTS[chart].to_lorentz(C[valid], k)
+        d = L.dist(gl[:, None], pts_lorentz[None], k)
+    else:
+        gp, pp = C[valid], CHARTS[chart].from_lorentz(pts_lorentz, k)
+        if metric == "cosine":
+            gn, pn = np.linalg.norm(gp, axis=1), np.linalg.norm(pp, axis=1)
+            d = 1 - (gp @ pp.T) / np.maximum(gn[:, None] * pn[None], 1e-9)
+        else:
+            d = np.sqrt(np.sum((gp[:, None] - pp[None]) ** 2, -1))
+    dens = np.exp(-(d**2) / (2 * _BW[metric] ** 2)).sum(1)
+    field[valid] = dens / dens.max()
+    return field.reshape(grid, grid), extent
+
+
+def density_heatmaps(coords, k=-1.0, chart="poincare", grid=110, n_points=600, seed=0,
+                     panels=(("poincare", "hyperbolic"), ("klein", "hyperbolic"), ("halfplane", "hyperbolic"),
+                             ("hyperboloid", "hyperbolic"), ("poincare", "euclidean"), ("poincare", "cosine"))):
+    """Compare the kernel density of the SAME points under different geometries. The
+    four hyperbolic panels (Poincaré / Klein / half-plane / hyperboloid) render the
+    identical intrinsic density — the models are isometric, so only their coordinate
+    charts (hence the appearance) differ — against Euclidean and cosine kernels on the
+    disk. >2D input is radius-reduced to 2D first."""
+    from mpl_toolkits.mplot3d import Axes3D  # noqa: F401  (registers 3d projection)
+
+    from . import reduce as _reduce
+    x = _to_lorentz(coords, chart, k)
+    if x.shape[-1] > 3:
+        x, _ = _reduce.radial_pca(x, 2, k)
+    rng = np.random.default_rng(seed)
+    if len(x) > n_points:
+        x = x[rng.choice(len(x), n_points, replace=False)]
+    R = 1 / np.sqrt(-k)
+
+    cols = min(len(panels), 3)
+    rows = -(-len(panels) // cols)
+    fig = Figure(figsize=(3.4 * cols, 3.6 * rows))
+    for i, (ch, metric) in enumerate(panels):
+        if ch == "hyperboloid":                                   # 3D surface colored by density
+            C, valid, _ = _chart_grid("poincare", R, grid)
+            C = C[valid][np.sum(C[valid] ** 2, 1) < (0.86 * R) ** 2]   # cap radius: height grows ~e^r
+            gl = CHARTS["poincare"].to_lorentz(C, k)
+            d = L.dist(gl[:, None], x[None], k)
+            dens = np.exp(-(d**2) / (2 * _BW["hyperbolic"] ** 2)).sum(1)
+            ax = fig.add_subplot(rows, cols, i + 1, projection="3d")
+            ax.scatter(gl[:, 1], gl[:, 2], gl[:, 0] - R, c=dens / dens.max(), cmap="magma", s=16, edgecolors="none")
+            ax.view_init(elev=22, azim=-60)
+            ax.set_axis_off()
+            ax.set_title("hyperboloid · hyperbolic", fontsize=9)
+            continue
+        field, extent = _density_field(ch, metric, x, R, k, grid)
+        ax = fig.add_subplot(rows, cols, i + 1)
+        ax.imshow(field, origin="lower", extent=extent, cmap="magma", vmin=0, vmax=1, aspect="auto")
+        if ch == "halfplane":
+            ax.axhline(0, color="#898781", lw=1)                  # x-axis = ideal boundary
+        else:
+            ax.add_patch(Circle((0, 0), R, fill=False, ec="#898781", lw=1))
+        ax.set_axis_off()
+        ax.set_title(f"{ch} · {metric}", fontsize=9)
     fig.tight_layout()
     return fig
 

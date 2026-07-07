@@ -18,4 +18,5 @@ if __name__ == "__main__":
     stats.depth_norm(coords, t.depth()).savefig("examples/out/atlas_depth_norm.svg", bbox_inches="tight")
     stats.distortion(coords, t).savefig("examples/out/atlas_distortion.svg", bbox_inches="tight")
     stats.delta_hyperbolicity(coords).savefig("examples/out/atlas_delta.svg", bbox_inches="tight")
-    print("wrote atlas_synth.html + norm_hist/depth_norm/distortion/delta figures")
+    stats.density_heatmaps(coords).savefig("examples/out/atlas_density.svg", bbox_inches="tight")
+    print("wrote atlas_synth.html + norm_hist/depth_norm/distortion/delta/density figures")

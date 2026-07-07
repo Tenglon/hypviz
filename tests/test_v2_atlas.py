@@ -72,6 +72,12 @@ def test_stats_figures_render():
     assert len(stats.depth_norm(coords, t.depth()).axes[0].get_lines()) > 0
 
 
+def test_density_heatmaps_renders_all_panels():
+    _, coords = _data(n=1500, dim=32, seed=1)
+    fig = stats.density_heatmaps(coords, grid=40, n_points=120)
+    assert len(fig.axes) == 6                        # 4 hyperbolic models + euclidean + cosine
+
+
 def test_distortion_and_delta_figures():
     t, coords = _data(n=2500, dim=32, seed=7)
     ax = stats.distortion(coords, t, n_pairs=1500).axes[0]

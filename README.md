@@ -63,6 +63,7 @@ stats.norm_hist(coords).savefig("norms.svg")            # full-data analysis fig
 stats.depth_norm(coords, depths).savefig("depth.svg")   # the depth≈radius staircase
 stats.distortion(coords, tree).savefig("distort.svg")   # graph vs embedding distance — faithfulness
 stats.delta_hyperbolicity(coords).savefig("delta.svg")  # Gromov 4-point δ — is the data hyperbolic?
+stats.density_heatmaps(coords).savefig("density.svg")   # KDE under each model + Euclidean/cosine kernels
 ```
 
 - **High-dimensional in, honest 2D out.** Pick the reduction (`reduction=`), always
