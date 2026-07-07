@@ -73,8 +73,8 @@ def test_stats_figures_render():
 
 
 def test_density_heatmaps_renders_all_panels():
-    _, coords = _data(n=1500, dim=32, seed=1)
-    fig = stats.density_heatmaps(coords, grid=40, n_points=120)
+    _, coords = _data(n=1500, dim=32, seed=1)         # diffuse returns Lorentz coords
+    fig = stats.density_heatmaps(coords, chart="lorentz", grid=40, n_points=120)
     assert len(fig.axes) == 6                        # 4 hyperbolic models + euclidean + cosine
 
 

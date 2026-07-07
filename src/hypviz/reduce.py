@@ -19,6 +19,16 @@ from .kernel.adapters import as_numpy
 from .kernel.charts import Poincare
 
 
+def _safe_svd(a):
+    """np.linalg.svd, robust to the occasional LAPACK gesdd non-convergence: retry
+    once with negligible jitter (breaks the pathological iteration, not the result)."""
+    try:
+        return np.linalg.svd(a, full_matrices=False)
+    except np.linalg.LinAlgError:
+        j = np.random.default_rng(0).standard_normal(a.shape) * 1e-9 * (np.abs(a).max() + 1e-12)
+        return np.linalg.svd(a + j, full_matrices=False)
+
+
 def tangent_pca(xs, dim=2, k=-1.0):
     """Project points on H^n (Lorentz coords) to H^dim via tangent-space PCA.
 
@@ -31,7 +41,7 @@ def tangent_pca(xs, dim=2, k=-1.0):
     v = L.logmap(m, xs, k)                              # (N, n+1) tangent vectors at m
     coords = v @ basis.T - 2 * np.outer(v[:, 0], basis[:, 0])   # <v, e_j>_L  -> (N, n)
     coords = coords - coords.mean(0)
-    _, s, wt = np.linalg.svd(coords, full_matrices=False)
+    _, s, wt = _safe_svd(coords)
     reduced = coords @ wt[:dim].T                       # (N, dim) principal tangent coords
     pts = L.expmap(L.origin(dim, k), np.concatenate([np.zeros((len(reduced), 1)), reduced], -1), k)
     var = s**2
@@ -53,7 +63,7 @@ def radial_pca(xs, dim=2, k=-1.0, center=None):
     ang = v @ basis.T - 2 * np.outer(v[:, 0], basis[:, 0])
     ang = ang / np.maximum(np.linalg.norm(ang, axis=1, keepdims=True), 1e-12)
     ang = ang - ang.mean(0)                          # remove the mean direction (cone axis)
-    _, s, wt = np.linalg.svd(ang, full_matrices=False)
+    _, s, wt = _safe_svd(ang)
     d2 = ang @ wt[:dim].T                            # project the CENTERED dirs → clades spread full circle
     d2 = r * d2 / np.maximum(np.linalg.norm(d2, axis=1, keepdims=True), 1e-12)  # restore true radius
     pts = L.expmap(L.origin(dim, k), np.concatenate([np.zeros((len(d2), 1)), d2], -1), k)
@@ -78,7 +88,7 @@ def horo_pca(coords, dim=2, k=-1.0):
     u0 = Poincare.from_lorentz(xs, k)                                    # unit-ball coords
     mean = Poincare.from_lorentz(L.frechet_mean(xs, k)[None], k)[0]
     u = M.add(np.broadcast_to(-mean, u0.shape), u0, k)                   # center: mean → origin
-    _, s, wt = np.linalg.svd(u - u.mean(0), full_matrices=False)         # ideal directions ≈ top PCs
+    _, s, wt = _safe_svd(u - u.mean(0))         # ideal directions ≈ top PCs
     Q = wt[:dim]
     sq = np.sum(u * u, -1)
     busemann = np.stack([np.log(np.maximum(1 - sq, 1e-12)) - np.log(np.sum((q - u) ** 2, -1)) for q in Q], -1)
