@@ -16,11 +16,11 @@ export type TransportLoopJSON = { id: string; type: "transport_loop"; points: st
 export type GyroplaneJSON = { id: string; type: "gyroplane"; p: string; normal: string; test?: string; levels: number[]; colors: { plane: string; pos: string; neg: string; normal: string; perp: string } };
 export type EntailmentConeJSON = { id: string; type: "entailment_cone"; apex: string; test?: string; aperture: number; colors: { fill: string; edge: string; yes: string; no: string } };
 export type CloudJSON = { id: string; type: "cloud"; spatial: number[][]; colors: string[]; labels?: string[]; parent?: number[]; pruned?: number[] };
-export type DensityJSON = { id: string; type: "density"; chart: string; extent: number[]; textures: Record<string, string>; metric: string };
+export type DensityJSON = { id: string; type: "density"; chart: string; extent: number[]; textures: Record<string, string>; metric: string; surface?: boolean };
 export type ObjJSON = PointJSON | GeodesicJSON | DistanceLabelJSON | LogVectorJSON | MobiusSumJSON | TangentPlaneJSON | MetricCircleJSON | TransportLoopJSON | GyroplaneJSON | EntailmentConeJSON | CloudJSON | DensityJSON;
 export type ChartKey = "poincare" | "klein" | "halfplane" | "hemisphere" | "lorentz" | "ball3d";
 export type LegendEntry = { kind: "line" | "arrow" | "point" | "circle" | "area"; color: string; label: string };
-export type SceneJSON = { views: { chart: ChartKey }[]; objects: ObjJSON[]; curvature?: number; curvatureSlider?: boolean; legend?: LegendEntry[] };
+export type SceneJSON = { views: { chart: ChartKey }[]; objects: ObjJSON[]; curvature?: number; curvatureSlider?: boolean; densityCurvatures?: number[]; legend?: LegendEntry[] };
 
 /** Everything a view needs to draw, all in Lorentz hub coordinates. */
 export interface Derived {

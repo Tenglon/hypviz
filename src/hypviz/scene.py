@@ -172,13 +172,14 @@ class DensityField(_Obj):
     one texture per metric (data URIs). Smooth (bilinear) and zoomable; the metric
     is switchable in the page."""
 
-    def __init__(self, chart, extent, textures, metric):
+    def __init__(self, chart, extent, textures, metric, surface=False):
         super().__init__()
         self.chart, self.extent, self.textures, self.metric = chart, list(extent), textures, metric
+        self.surface = surface
 
     def to_json(self, k):
-        return {"id": self.id, "type": "density", "chart": self.chart,
-                "extent": self.extent, "textures": self.textures, "metric": self.metric}
+        return {"id": self.id, "type": "density", "chart": self.chart, "extent": self.extent,
+                "textures": self.textures, "metric": self.metric, "surface": self.surface}
 
 
 class Cloud(_Obj):
@@ -209,9 +210,10 @@ class Cloud(_Obj):
 
 class Scene:
     def __init__(self, objects, views=("poincare", "lorentz"), curvature=-1.0, curvature_slider=False,
-                 hint=None, legend=()):
+                 hint=None, legend=(), density_curvatures=None):
         self.objects, self.views = list(objects), list(views)
         self.curvature, self.curvature_slider = curvature, curvature_slider
+        self.density_curvatures = density_curvatures
         self.hint = hint or _DEFAULT_HINT
         self.legend = [{"kind": k, "color": c, "label": l} for k, c, l in legend]  # (kind, color, label)
 
@@ -219,7 +221,7 @@ class Scene:
         return {"views": [{"chart": v} for v in self.views],
                 "objects": [o.to_json(self.curvature) for o in self.objects],
                 "curvature": self.curvature, "curvatureSlider": self.curvature_slider,
-                "legend": self.legend}
+                "densityCurvatures": self.density_curvatures, "legend": self.legend}
 
     def to_html(self, path, title="hypviz"):
         html = ((_STATIC / "template.html").read_text()

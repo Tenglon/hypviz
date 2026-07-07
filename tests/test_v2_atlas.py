@@ -81,11 +81,13 @@ def test_density_heatmaps_renders_all_panels():
 def test_density_scene_builds_textured_views():
     from hypviz.scene import DensityField
     _, coords = _data(n=800, dim=16, seed=2)
-    scene = stats.density_scene(coords, chart="lorentz", charts=("poincare", "klein"), res=60, n_points=100)
+    scene = stats.density_scene(coords, chart="lorentz", charts=("poincare", "hyperboloid"),
+                                curvatures=(-1.0, -0.5), res=50, n_points=80)
     dfs = [o for o in scene.objects if isinstance(o, DensityField)]
-    assert scene.views == ["poincare", "klein"] and len(dfs) == 2
-    assert set(dfs[0].textures) == {"hyperbolic", "euclidean", "cosine"}
-    assert dfs[0].textures["hyperbolic"].startswith("data:image/png;base64,")
+    assert scene.views == ["poincare", "lorentz"] and len(dfs) == 2   # hyperboloid → lorentz surface view
+    assert set(dfs[0].textures) == {"hyperbolic@-1", "hyperbolic@-0.5", "euclidean", "cosine"}
+    assert dfs[1].surface and dfs[0].textures["hyperbolic@-1"].startswith("data:image/png;base64,")
+    assert scene.density_curvatures == [-1.0, -0.5]
 
 
 def test_distortion_and_delta_figures():

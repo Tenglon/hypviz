@@ -112,11 +112,12 @@ def _chart_grid(chart, R, grid):
     return C, np.sum(C**2, 1) < (0.995 * R) ** 2, (-R, R, -R, R)
 
 
-def _density_field(chart, metric, pts_lorentz, R, k, grid):
-    """Normalized kernel density over `chart`'s grid; hyperbolic uses the intrinsic
-    geodesic distance (same for every model), euclidean/cosine the chart coords.
-    Chunked over grid cells to bound memory at high resolution."""
-    C, valid, extent = _chart_grid(chart, R, grid)
+def _density_field(chart, metric, pts_lorentz, k, grid):
+    """Normalized kernel density over `chart`'s UNIT grid (fixed display); hyperbolic
+    lifts grid+points to Lorentz at curvature k for the geodesic distance (valid for
+    k in [-1, 0) — the unit points stay inside the k-ball), euclidean/cosine use the
+    chart coords. Chunked over grid cells to bound memory."""
+    C, valid, extent = _chart_grid(chart, 1.0, grid)              # display fixed at unit scale
     Cv = C[valid]
     pp = None if metric == "hyperbolic" else CHARTS[chart].from_lorentz(pts_lorentz, k)
     pn = None if pp is None else np.linalg.norm(pp, axis=1)
@@ -135,7 +136,7 @@ def _density_field(chart, metric, pts_lorentz, R, k, grid):
     return field.reshape(grid, grid), extent
 
 
-def _density_texture(chart, metric, pts, R, k, res):
+def _density_texture(chart, metric, pts, k, res):
     """Render the density field to a magma RGBA PNG data URI (transparent outside the
     chart), plus the extent — for the interactive textured density view."""
     import base64
@@ -143,7 +144,7 @@ def _density_texture(chart, metric, pts, R, k, res):
 
     import matplotlib as mpl
 
-    field, extent = _density_field(chart, metric, pts, R, k, res)
+    field, extent = _density_field(chart, metric, pts, k, res)
     rgba = mpl.colormaps["magma"](np.nan_to_num(field, nan=0.0))
     rgba[..., 3] = np.where(np.isnan(field), 0.0, 1.0)
     buf = BytesIO()
@@ -151,34 +152,45 @@ def _density_texture(chart, metric, pts, R, k, res):
     return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode(), list(extent)
 
 
-def density_scene(coords, k=-1.0, chart="poincare", charts=("poincare", "klein", "halfplane"),
-                  metrics=("hyperbolic", "euclidean", "cosine"), res=260, n_points=700, seed=0):
-    """Interactive density comparison: the same points' KDE as a smooth, zoomable
-    texture in each of `charts`, with a live kernel switch. Hyperbolic is the intrinsic
-    geodesic density (identical across the isometric models); euclidean/cosine use each
-    chart's coordinates. >2D input is radius-reduced to 2D first. Returns a Scene."""
+def density_scene(coords, chart="poincare", charts=("poincare", "klein", "halfplane", "hyperboloid"),
+                  metrics=("hyperbolic", "euclidean", "cosine"), curvatures=(-1.0, -0.5, -0.25, -0.1),
+                  res=240, n_points=700, seed=0):
+    """Interactive density comparison. The same fixed 2D points, their KDE rendered as a
+    smooth, zoomable texture in each hyperbolic model (Poincaré / Klein / half-plane, and
+    the hyperboloid as a textured surface — all isometric, so the density is identical and
+    only the chart differs). A **kernel** switch picks the metric (hyperbolic / euclidean /
+    cosine) and a **curvature** slider varies the hyperbolic kernel's K in [-1, 0): as K→0
+    the hyperbolic density morphs toward the Euclidean one. >2D input is radius-reduced to
+    2D at K=-1 first (fixing the point positions). Returns a Scene."""
     from . import reduce as _reduce
     from .scene import DensityField, Scene
 
-    x = _to_lorentz(coords, chart, k)
+    x = _to_lorentz(coords, chart, -1.0)
     if x.shape[-1] > 3:
-        x, _ = _reduce.radial_pca(x, 2, k)
+        x, _ = _reduce.radial_pca(x, 2, -1.0)
     rng = np.random.default_rng(seed)
     if len(x) > n_points:
         x = x[rng.choice(len(x), n_points, replace=False)]
-    R = 1 / np.sqrt(-k)
+    p_unit = CHARTS["poincare"].from_lorentz(x, -1.0)          # fixed unit-disk positions
 
     objs = []
     for ch in charts:
+        tex_chart = "poincare" if ch == "hyperboloid" else ch  # surface reuses the disk texture via UVs
         textures, extent = {}, None
-        for m in metrics:
-            textures[m], extent = _density_texture(ch, m, x, R, k, res)
-        objs.append(DensityField(ch, extent, textures, metrics[0]))
-    return Scene(objs, views=list(charts), curvature=k,
-                 hint=("The same points' kernel density under each hyperbolic model (Poincaré / Klein / "
-                       "half-plane — isometric, so the density is identical and only the chart differs) and "
-                       "metric. Switch the kernel above: hyperbolic uses the intrinsic geodesic distance, "
-                       "euclidean/cosine the chart coordinates. Scroll to zoom (the texture stays crisp), drag to pan."))
+        for kc in curvatures:                                  # hyperbolic kernel at each curvature
+            textures[f"hyperbolic@{kc:g}"], extent = _density_texture(
+                tex_chart, "hyperbolic", CHARTS["poincare"].to_lorentz(p_unit, kc), kc, res)
+        for m in ("euclidean", "cosine"):                      # K-independent, on the unit disk
+            if m in metrics:
+                textures[m], extent = _density_texture(tex_chart, m, x, -1.0, res)
+        objs.append(DensityField(ch if ch != "hyperboloid" else "lorentz", extent, textures,
+                                 f"hyperbolic@{curvatures[0]:g}", surface=(ch == "hyperboloid")))
+    return Scene(objs, views=[o.chart for o in objs], curvature=-1.0,
+                 density_curvatures=[float(c) for c in curvatures],
+                 hint=("The same points' kernel density in each hyperbolic model (Poincaré / Klein / half-plane / "
+                       "hyperboloid — isometric, so the density is identical; only the chart, hence the appearance, "
+                       "differs). Pick the KERNEL (hyperbolic / euclidean / cosine) and slide the CURVATURE: as "
+                       "K → 0 the hyperbolic density flattens toward the Euclidean one. Scroll to zoom, drag to pan."))
 
 
 def density_heatmaps(coords, k=-1.0, chart="poincare", grid=110, n_points=600, seed=0,
@@ -216,13 +228,13 @@ def density_heatmaps(coords, k=-1.0, chart="poincare", grid=110, n_points=600, s
             ax.set_axis_off()
             ax.set_title("hyperboloid · hyperbolic", fontsize=9)
             continue
-        field, extent = _density_field(ch, metric, x, R, k, grid)
+        field, extent = _density_field(ch, metric, x, k, grid)
         ax = fig.add_subplot(rows, cols, i + 1)
         ax.imshow(field, origin="lower", extent=extent, cmap="magma", vmin=0, vmax=1, aspect="auto")
         if ch == "halfplane":
             ax.axhline(0, color="#898781", lw=1)                  # x-axis = ideal boundary
         else:
-            ax.add_patch(Circle((0, 0), R, fill=False, ec="#898781", lw=1))
+            ax.add_patch(Circle((0, 0), 1, fill=False, ec="#898781", lw=1))
         ax.set_axis_off()
         ax.set_title(f"{ch} · {metric}", fontsize=9)
     fig.tight_layout()

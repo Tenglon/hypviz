@@ -68,6 +68,7 @@ export class HypView {
   labels = new Map<string, { div: HTMLElement; world: THREE.Vector3 }>();
   clouds: CloudLayer[] = [];
   densities: DensityLayer[] = [];
+  hasDensity = false;
   tooltipEl?: HTMLElement;
   onPick?: (i: number) => void;
   raycaster = new THREE.Raycaster();
@@ -101,6 +102,7 @@ export class HypView {
     } else {
       this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
     }
+    this.hasDensity = state.scene.objects.some((o) => o.type === "density" && o.chart === this.chart);
     this.setCurvature(state.k);
     for (const o of state.scene.objects) {
       if (o.type === "cloud")
@@ -157,6 +159,11 @@ export class HypView {
     const R = this.R, D = domain(k);
     this.statics.clear();
     this.surface = undefined;
+    if (this.chart === "lorentz" && this.hasDensity) {        // density surface is the content — no default statics
+      this.camera.position.set(2.4, -2.4, 1.7);
+      this.controls!.target.set(0, 0, 0.4);
+      return;
+    }
     if (this.chart === "ball3d") {                            // H³ Poincaré ball: boundary sphere only
       const geo = new THREE.SphereGeometry(R, 32, 24);
       this.statics.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
@@ -578,21 +585,42 @@ export function mount(root: HTMLElement, scene: SceneJSON) {
   const views = scene.views.map((v) => new HypView(root, v.chart, state));
   views.forEach((v) => v.resize()); // re-measure: flex widths settle only once all views exist
   const density = scene.objects.find((o) => o.type === "density") as { textures: Record<string, string> } | undefined;
-  if (density) {                                          // metric switcher for density fields
+  if (density) {                                          // kernel switch + curvature slider for density
+    const keys = Object.keys(density.textures);
+    const metrics = [...new Set(keys.map((k) => k.split("@")[0]))];
+    const curvs = scene.densityCurvatures ?? [-1];
+    let metric = metrics[0], kIdx = 0;
+    const apply = () => {
+      const key = metric === "hyperbolic" ? `hyperbolic@${curvs[kIdx]}` : metric;
+      views.forEach((v) => v.densities.forEach((d) => d.setKey(key)));
+    };
     const bar2 = document.createElement("div");
     bar2.className = "hypctl";
     bar2.append("kernel ");
-    Object.keys(density.textures).forEach((m, i) => {
+    metrics.forEach((m, i) => {
       const btn = document.createElement("button");
       btn.textContent = m;
       if (i === 0) btn.classList.add("on");
       btn.addEventListener("click", () => {
         bar2.querySelectorAll("button").forEach((b) => b.classList.remove("on"));
         btn.classList.add("on");
-        views.forEach((v) => v.densities.forEach((d) => d.setMetric(m)));
+        metric = m;
+        slider.style.opacity = m === "hyperbolic" ? "1" : "0.35";
+        (slider as HTMLInputElement).disabled = m !== "hyperbolic";
+        apply();
       });
       bar2.appendChild(btn);
     });
+    const readout = document.createElement("span");
+    const slider = document.createElement("input");
+    Object.assign(slider, { type: "range", min: "0", max: String(curvs.length - 1), step: "1", value: "0" });
+    slider.addEventListener("input", () => {
+      kIdx = +slider.value;
+      readout.textContent = `K = ${(+curvs[kIdx]).toFixed(2)}`;
+      apply();
+    });
+    readout.textContent = `K = ${(+curvs[0]).toFixed(2)}`;
+    bar2.append("  curvature ", slider, readout);
     root.before(bar2);
   }
   // shared tooltip + selection broadcast, so clouds in every view stay in sync
