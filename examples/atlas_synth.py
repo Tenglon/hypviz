@@ -16,4 +16,6 @@ if __name__ == "__main__":
     build_scene().to_html("examples/out/atlas_synth.html", title="Embedding Atlas — synthetic 128D taxonomy")
     stats.norm_hist(coords).savefig("examples/out/atlas_norm_hist.svg", bbox_inches="tight")
     stats.depth_norm(coords, t.depth()).savefig("examples/out/atlas_depth_norm.svg", bbox_inches="tight")
-    print("wrote atlas_synth.html + atlas_norm_hist.svg + atlas_depth_norm.svg")
+    stats.distortion(coords, t).savefig("examples/out/atlas_distortion.svg", bbox_inches="tight")
+    stats.delta_hyperbolicity(coords).savefig("examples/out/atlas_delta.svg", bbox_inches="tight")
+    print("wrote atlas_synth.html + norm_hist/depth_norm/distortion/delta figures")

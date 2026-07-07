@@ -63,6 +63,17 @@ def test_stats_figures_render():
     assert len(stats.depth_norm(coords, t.depth()).axes[0].get_lines()) > 0
 
 
+def test_distortion_and_delta_figures():
+    t, coords = _data(n=2500, dim=32, seed=7)
+    ax = stats.distortion(coords, t, n_pairs=1500).axes[0]
+    assert len(ax.collections) > 0 and len(ax.get_lines()) > 0     # scatter + fit line
+    dfig = stats.delta_hyperbolicity(coords, n=120, n_quads=8000)
+    ax = dfig.axes[0]
+    assert len(ax.patches) > 0                                     # histogram bars
+    worst = ax.get_lines()[0].get_xdata()[0]                       # the axvline at worst δ_rel
+    assert 0 <= worst <= 1
+
+
 def test_stats_honor_input_chart():
     # Sarkar returns Poincaré coords; feeding them as Lorentz collapses every norm to 0
     tree = Tree.from_paths([("A", "A1", "x"), ("A", "A1", "y"), ("A", "A2", "z"), ("B", "B1", "w")])
