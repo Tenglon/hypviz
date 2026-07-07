@@ -34,6 +34,8 @@ STATIC = {
                         "The same 128-D embedding with each top clade's hyperbolic centroid (Fréchet mean) overlaid as a labeled marker."),
     "atlas_ball3d": ("H³ Poincaré ball — 3D (real 128D)",
                      "The real 128-D embedding reduced to 3D and shown in the rotatable Poincaré ball, instead of the 2D disk."),
+    "atlas_cosne": ("CO-SNE — hyperbolic t-SNE (real 128D)",
+                    "The real 128-D embedding reduced with CO-SNE: local neighborhoods form tight clusters (vs the linear methods' ring)."),
 }
 
 

@@ -75,6 +75,9 @@ stats.delta_hyperbolicity(coords).savefig("delta.svg")  # Gromov 4-point δ — 
   - `horo` — horospherical / Busemann reduction (HoroPCA, Chami et al. 2021):
     projects via Busemann coordinates rather than the tangent linearization
     (k = -1). A principled alternative to tangent PCA; the benefit is data-dependent.
+  - `cosne` — CO-SNE hyperbolic t-SNE (Guo et al. 2022): the best **local-neighborhood**
+    preservation (clusters), at the cost of global distances; O(N²), needs `torch`,
+    k = -1. Use on ≤ ~1500 points.
   - `tangent` — plain tangent-space PCA (no privileged radius).
 - **Scale by sampling, disclose the rest.** `budget` caps the drawn nodes with a
   hierarchy-aware sampler (ancestor closure guaranteed); every hover tooltip reports

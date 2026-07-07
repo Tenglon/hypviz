@@ -61,6 +61,7 @@ def atlas(coords, edges, labels=None, *, chart="lorentz", k=-1.0, color_by="dept
         how = {"radial": "radius-preserving, depth↔radius exact",
                "tree": "radius = embedding distance-to-root; angle = tree layout",
                "horo": "horospherical / Busemann (HoroPCA, Chami et al. 2021)",
+               "cosne": "CO-SNE hyperbolic t-SNE — local neighborhoods (Guo et al. 2022)",
                "tangent": "tangent-space PCA"}[reduction]
         notes.append(f"{orig_dim}D → {dim}D ({how})")
     objs, legend = [cloud], [("point", "#3987e5", f"nodes — colored by {leg}")]

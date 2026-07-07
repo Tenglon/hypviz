@@ -86,3 +86,77 @@ def horo_pca(coords, dim=2, k=-1.0):
     pts = L.expmap(L.origin(dim, k), np.concatenate([np.zeros((len(busemann), 1)), busemann], -1), k)
     info = {"directions": Q, "explained_variance_ratio": float((s[:dim] ** 2).sum() / (s**2).sum())}
     return pts, info
+
+
+def _perplexity_probs(dist, perplexity, steps=60):
+    """Symmetric joint P from pairwise distances via per-point perplexity (t-SNE);
+    each row's bandwidth β is binary-searched to hit the target entropy."""
+    n = len(dist)
+    d2 = dist**2
+    P = np.zeros((n, n))
+    target = np.log(perplexity)
+    for i in range(n):
+        others = np.arange(n) != i
+        di = d2[i][others]                                     # self excluded — no inf/0·inf
+        lo, hi, beta = 0.0, np.inf, 1.0
+        for _ in range(steps):
+            w = np.exp(-di * beta)
+            sw = w.sum()
+            entropy = np.log(sw) + beta * (di * w).sum() / sw
+            if entropy > target:
+                lo, beta = beta, beta * 2 if hi == np.inf else (beta + hi) / 2
+            else:
+                hi, beta = beta, (beta + lo) / 2
+        w = np.exp(-di * beta)
+        P[i, others] = w / w.sum()
+    return (P + P.T) / (2 * n)
+
+
+def co_sne(coords, dim=2, k=-1.0, perplexity=30, iters=1000, lr=0.3, gamma=0.1,
+           l1=10.0, l2=0.01, exaggerate=12.0, exag_iters=250, norm_after=250, grad_clip=0.1, seed=0):
+    """CO-SNE (Guo et al. 2022): hyperbolic t-SNE. Preserves both local neighborhoods
+    (KL between hyperbolic-distance similarities, low-dim a hyperbolic Cauchy) AND the
+    distance-to-origin / hierarchy (the ‖x‖²−‖y‖² norm term). Riemannian SGD in the
+    Poincaré ball with early exaggeration + momentum, initialized from tangent PCA.
+    Requires torch (optional). O(N²) — use on ≤ ~1500 points. k=-1."""
+    if not np.isclose(k, -1.0):
+        raise ValueError("co_sne currently supports curvature k = -1")
+    import torch
+
+    xs = as_numpy(coords)
+    P = _perplexity_probs(L.dist(xs[:, None], xs[None], k), perplexity)
+    nx = np.sum(Poincare.from_lorentz(xs, k) ** 2, -1)                 # high-dim ball norm²
+
+    y0 = Poincare.from_lorentz(tangent_pca(xs, dim, k)[0], k)          # structured start
+    y0 = 0.3 * y0 / (np.abs(y0).max() + 1e-9)
+    Pt, nxt = torch.tensor(np.maximum(P, 1e-12)), torch.tensor(nx)
+    Y = torch.tensor(y0, requires_grad=True)
+    vel = torch.zeros_like(Y)
+
+    def d2_poincare(y):
+        n = (y * y).sum(1)
+        sq = ((y[:, None, :] - y[None, :, :]) ** 2).sum(2)
+        arg = 1 + 2 * sq / ((1 - n[:, None]) * (1 - n[None, :])).clamp_min(1e-12)
+        return torch.arccosh(arg.clamp_min(1 + 1e-12)) ** 2
+
+    for it in range(iters):
+        if Y.grad is not None:
+            Y.grad.zero_()
+        peff = Pt * (exaggerate if it < exag_iters else 1.0)          # early exaggeration
+        w = gamma**2 / (d2_poincare(Y) + gamma**2)
+        w = w - torch.diag(torch.diag(w))
+        Q = (w / w.sum()).clamp_min(1e-12)
+        loss = l1 * (peff * (peff.log() - Q.log())).sum()
+        if it >= norm_after:
+            loss = loss + l2 * ((nxt - (Y * Y).sum(1)) ** 2).mean()
+        loss.backward()
+        with torch.no_grad():
+            rgrad = ((1 - (Y * Y).sum(1, keepdim=True)) ** 2 / 4) * Y.grad   # Riemannian gradient
+            g = rgrad.norm(dim=1, keepdim=True)                              # clip: the metric blows
+            rgrad = torch.where(g > grad_clip, rgrad * grad_clip / g, rgrad) # up near the boundary
+            vel = (0.5 if it < exag_iters else 0.8) * vel - lr * rgrad       # momentum
+            Y += vel
+            nrm = Y.norm(dim=1, keepdim=True)                                # retract into the ball
+            Y.data = torch.where(nrm > 0.999, Y * 0.999 / nrm, Y)
+
+    return Poincare.to_lorentz(Y.detach().numpy(), k), {"perplexity": perplexity}
