@@ -167,6 +167,20 @@ class TransportLoop(_Obj):
                 "points": [p.id for p in self.points], "colors": self.colors}
 
 
+class DensityField(_Obj):
+    """A precomputed density heatmap rendered as a texture on `chart`'s plane, with
+    one texture per metric (data URIs). Smooth (bilinear) and zoomable; the metric
+    is switchable in the page."""
+
+    def __init__(self, chart, extent, textures, metric):
+        super().__init__()
+        self.chart, self.extent, self.textures, self.metric = chart, list(extent), textures, metric
+
+    def to_json(self, k):
+        return {"id": self.id, "type": "density", "chart": self.chart,
+                "extent": self.extent, "textures": self.textures, "metric": self.metric}
+
+
 class Cloud(_Obj):
     """A bulk point cloud (typically a sampled Hierarchy): batch-rendered points
     with per-point color and hover label, tree edges derived from `parent`, and

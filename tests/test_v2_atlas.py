@@ -78,6 +78,16 @@ def test_density_heatmaps_renders_all_panels():
     assert len(fig.axes) == 6                        # 4 hyperbolic models + euclidean + cosine
 
 
+def test_density_scene_builds_textured_views():
+    from hypviz.scene import DensityField
+    _, coords = _data(n=800, dim=16, seed=2)
+    scene = stats.density_scene(coords, chart="lorentz", charts=("poincare", "klein"), res=60, n_points=100)
+    dfs = [o for o in scene.objects if isinstance(o, DensityField)]
+    assert scene.views == ["poincare", "klein"] and len(dfs) == 2
+    assert set(dfs[0].textures) == {"hyperbolic", "euclidean", "cosine"}
+    assert dfs[0].textures["hyperbolic"].startswith("data:image/png;base64,")
+
+
 def test_distortion_and_delta_figures():
     t, coords = _data(n=2500, dim=32, seed=7)
     ax = stats.distortion(coords, t, n_pairs=1500).axes[0]

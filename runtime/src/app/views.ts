@@ -10,6 +10,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { CloudLayer } from "./cloud";
+import { DensityLayer } from "./density";
 import { CHARTS } from "../kernel/charts";
 import * as L from "../kernel/lorentz";
 import { Vec } from "../kernel/lorentz";
@@ -66,6 +67,7 @@ export class HypView {
   tcircles = new Map<string, THREE.LineLoop>();
   labels = new Map<string, { div: HTMLElement; world: THREE.Vector3 }>();
   clouds: CloudLayer[] = [];
+  densities: DensityLayer[] = [];
   tooltipEl?: HTMLElement;
   onPick?: (i: number) => void;
   raycaster = new THREE.Raycaster();
@@ -100,9 +102,12 @@ export class HypView {
       this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
     }
     this.setCurvature(state.k);
-    for (const o of state.scene.objects)
+    for (const o of state.scene.objects) {
       if (o.type === "cloud")
         this.clouds.push(new CloudLayer(this.scene3, o, (x) => this.project(x), this.kNow, this.is3D ? 5 : 6));
+      else if (o.type === "density" && o.chart === this.chart)
+        this.densities.push(new DensityLayer(this.scene3, o));
+    }
 
     window.addEventListener("resize", () => this.resize());
     const dom = this.renderer.domElement;
@@ -572,6 +577,24 @@ export function mount(root: HTMLElement, scene: SceneJSON) {
   root.before(bar);
   const views = scene.views.map((v) => new HypView(root, v.chart, state));
   views.forEach((v) => v.resize()); // re-measure: flex widths settle only once all views exist
+  const density = scene.objects.find((o) => o.type === "density") as { textures: Record<string, string> } | undefined;
+  if (density) {                                          // metric switcher for density fields
+    const bar2 = document.createElement("div");
+    bar2.className = "hypctl";
+    bar2.append("kernel ");
+    Object.keys(density.textures).forEach((m, i) => {
+      const btn = document.createElement("button");
+      btn.textContent = m;
+      if (i === 0) btn.classList.add("on");
+      btn.addEventListener("click", () => {
+        bar2.querySelectorAll("button").forEach((b) => b.classList.remove("on"));
+        btn.classList.add("on");
+        views.forEach((v) => v.densities.forEach((d) => d.setMetric(m)));
+      });
+      bar2.appendChild(btn);
+    });
+    root.before(bar2);
+  }
   // shared tooltip + selection broadcast, so clouds in every view stay in sync
   const tip = document.createElement("div");
   tip.className = "hyptooltip";

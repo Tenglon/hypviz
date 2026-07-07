@@ -114,22 +114,71 @@ def _chart_grid(chart, R, grid):
 
 def _density_field(chart, metric, pts_lorentz, R, k, grid):
     """Normalized kernel density over `chart`'s grid; hyperbolic uses the intrinsic
-    geodesic distance (same for every model), euclidean/cosine the chart coords."""
+    geodesic distance (same for every model), euclidean/cosine the chart coords.
+    Chunked over grid cells to bound memory at high resolution."""
     C, valid, extent = _chart_grid(chart, R, grid)
-    field = np.full(len(C), np.nan)
-    if metric == "hyperbolic":
-        gl = CHARTS[chart].to_lorentz(C[valid], k)
-        d = L.dist(gl[:, None], pts_lorentz[None], k)
-    else:
-        gp, pp = C[valid], CHARTS[chart].from_lorentz(pts_lorentz, k)
-        if metric == "cosine":
-            gn, pn = np.linalg.norm(gp, axis=1), np.linalg.norm(pp, axis=1)
-            d = 1 - (gp @ pp.T) / np.maximum(gn[:, None] * pn[None], 1e-9)
+    Cv = C[valid]
+    pp = None if metric == "hyperbolic" else CHARTS[chart].from_lorentz(pts_lorentz, k)
+    pn = None if pp is None else np.linalg.norm(pp, axis=1)
+    dens = np.empty(len(Cv))
+    for s in range(0, len(Cv), 4000):
+        g = Cv[s:s + 4000]
+        if metric == "hyperbolic":
+            d = L.dist(CHARTS[chart].to_lorentz(g, k)[:, None], pts_lorentz[None], k)
+        elif metric == "cosine":
+            d = 1 - (g @ pp.T) / np.maximum(np.linalg.norm(g, axis=1)[:, None] * pn[None], 1e-9)
         else:
-            d = np.sqrt(np.sum((gp[:, None] - pp[None]) ** 2, -1))
-    dens = np.exp(-(d**2) / (2 * _BW[metric] ** 2)).sum(1)
+            d = np.sqrt(np.sum((g[:, None] - pp[None]) ** 2, -1))
+        dens[s:s + 4000] = np.exp(-(d**2) / (2 * _BW[metric] ** 2)).sum(1)
+    field = np.full(len(C), np.nan)
     field[valid] = dens / dens.max()
     return field.reshape(grid, grid), extent
+
+
+def _density_texture(chart, metric, pts, R, k, res):
+    """Render the density field to a magma RGBA PNG data URI (transparent outside the
+    chart), plus the extent — for the interactive textured density view."""
+    import base64
+    from io import BytesIO
+
+    import matplotlib as mpl
+
+    field, extent = _density_field(chart, metric, pts, R, k, res)
+    rgba = mpl.colormaps["magma"](np.nan_to_num(field, nan=0.0))
+    rgba[..., 3] = np.where(np.isnan(field), 0.0, 1.0)
+    buf = BytesIO()
+    mpl.image.imsave(buf, rgba[::-1], format="png")            # flip rows → texture orientation
+    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode(), list(extent)
+
+
+def density_scene(coords, k=-1.0, chart="poincare", charts=("poincare", "klein", "halfplane"),
+                  metrics=("hyperbolic", "euclidean", "cosine"), res=260, n_points=700, seed=0):
+    """Interactive density comparison: the same points' KDE as a smooth, zoomable
+    texture in each of `charts`, with a live kernel switch. Hyperbolic is the intrinsic
+    geodesic density (identical across the isometric models); euclidean/cosine use each
+    chart's coordinates. >2D input is radius-reduced to 2D first. Returns a Scene."""
+    from . import reduce as _reduce
+    from .scene import DensityField, Scene
+
+    x = _to_lorentz(coords, chart, k)
+    if x.shape[-1] > 3:
+        x, _ = _reduce.radial_pca(x, 2, k)
+    rng = np.random.default_rng(seed)
+    if len(x) > n_points:
+        x = x[rng.choice(len(x), n_points, replace=False)]
+    R = 1 / np.sqrt(-k)
+
+    objs = []
+    for ch in charts:
+        textures, extent = {}, None
+        for m in metrics:
+            textures[m], extent = _density_texture(ch, m, x, R, k, res)
+        objs.append(DensityField(ch, extent, textures, metrics[0]))
+    return Scene(objs, views=list(charts), curvature=k,
+                 hint=("The same points' kernel density under each hyperbolic model (Poincaré / Klein / "
+                       "half-plane — isometric, so the density is identical and only the chart differs) and "
+                       "metric. Switch the kernel above: hyperbolic uses the intrinsic geodesic distance, "
+                       "euclidean/cosine the chart coordinates. Scroll to zoom (the texture stays crisp), drag to pan."))
 
 
 def density_heatmaps(coords, k=-1.0, chart="poincare", grid=110, n_points=600, seed=0,
