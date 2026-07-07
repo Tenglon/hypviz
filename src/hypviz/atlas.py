@@ -33,18 +33,20 @@ def _resolve_groups(tree, labels, show_centroids):
 
 
 def atlas(coords, edges, labels=None, *, chart="lorentz", k=-1.0, color_by="depth",
-          budget=10_000, reduction="radial", views=("poincare", "lorentz"),
+          budget=10_000, reduction="radial", dim=2, views=None,
           show_centroids=None, max_centroids=12, seed=0):
-    """Return a Scene: sampled, 2D-reduced, colored point cloud with hover/ancestor
-    interaction. `edges` is a Tree or a list of (parent, child) pairs. `show_centroids`
-    ('depth' | 'clade' | a per-node label array) overlays each group's hyperbolic
-    centroid (the Fréchet mean of its drawn points) as a labeled marker; only the
-    `max_centroids` largest groups are shown (disclosed if capped)."""
+    """Return a Scene: sampled, reduced, colored point cloud with hover/ancestor
+    interaction. `edges` is a Tree or a list of (parent, child) pairs. `dim` is the
+    reduction target: 2 → linked Poincaré-disk + hyperboloid views; 3 → the H³
+    Poincaré-ball view. `show_centroids` ('depth' | 'clade' | a per-node label array)
+    overlays each group's hyperbolic centroid; only the `max_centroids` largest are
+    shown (disclosed if capped)."""
+    views = views if views is not None else (("ball3d",) if dim == 3 else ("poincare", "lorentz"))
     tree = edges if isinstance(edges, Tree) else Tree.from_edges(edges, labels=labels)
     groups = None if show_centroids is None else _resolve_groups(tree, labels, show_centroids)
     full = Hierarchy(coords, tree, labels, chart=chart, k=k, groups=groups)
     orig_dim, n_full = full.dim, len(full)
-    h = full.sample(budget, seed=seed).reduce(2, reduction)
+    h = full.sample(budget, seed=seed).reduce(dim, reduction)
 
     scalar, leg = _ENCODE[color_by]
     col = colors.by_category(h.labels if h.labels is not None else h.depth()) if color_by == "label" \
@@ -55,12 +57,12 @@ def atlas(coords, edges, labels=None, *, chart="lorentz", k=-1.0, color_by="dept
     notes = []
     if n_full > len(h):
         notes.append(f"showing {len(h):,} of {n_full:,} nodes ({h.rate:.0%}) — hover for pruned-leaf counts")
-    if orig_dim > 2 or reduction == "tree":
+    if orig_dim > dim or reduction == "tree":
         how = {"radial": "radius-preserving, depth↔radius exact",
                "tree": "radius = embedding distance-to-root; angle = tree layout",
                "horo": "horospherical / Busemann (HoroPCA, Chami et al. 2021)",
                "tangent": "tangent-space PCA"}[reduction]
-        notes.append(f"{orig_dim}D → 2D ({how})")
+        notes.append(f"{orig_dim}D → {dim}D ({how})")
     objs, legend = [cloud], [("point", "#3987e5", f"nodes — colored by {leg}")]
     if h.groups is not None:                              # overlay each group's hyperbolic centroid
         uniq, counts = np.unique(h.groups, return_counts=True)

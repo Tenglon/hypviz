@@ -17,7 +17,7 @@ export type GyroplaneJSON = { id: string; type: "gyroplane"; p: string; normal: 
 export type EntailmentConeJSON = { id: string; type: "entailment_cone"; apex: string; test?: string; aperture: number; colors: { fill: string; edge: string; yes: string; no: string } };
 export type CloudJSON = { id: string; type: "cloud"; spatial: number[][]; colors: string[]; labels?: string[]; parent?: number[]; pruned?: number[] };
 export type ObjJSON = PointJSON | GeodesicJSON | DistanceLabelJSON | LogVectorJSON | MobiusSumJSON | TangentPlaneJSON | MetricCircleJSON | TransportLoopJSON | GyroplaneJSON | EntailmentConeJSON | CloudJSON;
-export type ChartKey = "poincare" | "klein" | "halfplane" | "hemisphere" | "lorentz";
+export type ChartKey = "poincare" | "klein" | "halfplane" | "hemisphere" | "lorentz" | "ball3d";
 export type LegendEntry = { kind: "line" | "arrow" | "point" | "circle" | "area"; color: string; label: string };
 export type SceneJSON = { views: { chart: ChartKey }[]; objects: ObjJSON[]; curvature?: number; curvatureSlider?: boolean; legend?: LegendEntry[] };
 

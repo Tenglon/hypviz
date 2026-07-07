@@ -118,7 +118,7 @@ export class HypView {
   }
 
   get is3D() {
-    return this.chart === "lorentz" || this.chart === "hemisphere";
+    return this.chart === "lorentz" || this.chart === "hemisphere" || this.chart === "ball3d";
   }
 
   /** Lorentz hub coords -> this view's world coords (3D: apex pinned at z=0;
@@ -128,6 +128,10 @@ export class HypView {
     if (this.chart === "hemisphere") {
       const [a, b] = CHARTS.klein.fromLorentz(x, this.kNow);
       return new THREE.Vector3(a, b, Math.sqrt(Math.max(this.R ** 2 - a * a - b * b, 0)));
+    }
+    if (this.chart === "ball3d") {
+      const p = CHARTS.poincare.fromLorentz(x, this.kNow);   // 3D Poincaré ball coords
+      return new THREE.Vector3(p[0], p[1], p[2] ?? 0);
     }
     const p = CHARTS[this.chart].fromLorentz(x, this.kNow);
     return new THREE.Vector3(p[0], p[1], 0);
@@ -148,6 +152,17 @@ export class HypView {
     const R = this.R, D = domain(k);
     this.statics.clear();
     this.surface = undefined;
+    if (this.chart === "ball3d") {                            // H³ Poincaré ball: boundary sphere only
+      const geo = new THREE.SphereGeometry(R, 32, 24);
+      this.statics.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+        color: COLORS.surface, transparent: true, opacity: 0.06, side: THREE.BackSide, depthWrite: false,
+      })));
+      this.statics.add(new THREE.LineSegments(new THREE.WireframeGeometry(new THREE.SphereGeometry(R, 16, 12)),
+        new THREE.LineBasicMaterial({ color: COLORS.grid, transparent: true, opacity: 0.5 })));
+      this.camera.position.set(2.6 * R, -2.6 * R, 1.8 * R);
+      this.controls!.target.set(0, 0, 0);
+      return;
+    }
     if (this.chart === "lorentz") {
       this.surface = this.makeSurface((t, th) =>
         [R * Math.sinh(t) * Math.cos(th), R * Math.sinh(t) * Math.sin(th), R * Math.cosh(t) - R], Math.asinh(S / R));

@@ -57,6 +57,7 @@ from hypviz import atlas, stats
 # coords: (N, d+1) Lorentz (or Poincaré via chart=); edges: (parent, child) pairs
 atlas(coords, edges, labels=names, color_by="depth", budget=10_000) \
     .to_html("atlas.html")               # sampled, 2D-reduced, interactive
+atlas(coords, edges, dim=3).to_html("ball.html")       # or reduce to the 3D Poincaré ball
 
 stats.norm_hist(coords).savefig("norms.svg")            # full-data analysis figures
 stats.depth_norm(coords, depths).savefig("depth.svg")   # the depth≈radius staircase

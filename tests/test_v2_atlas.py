@@ -28,6 +28,15 @@ def test_atlas_color_by_variants(tmp_path):
         assert out.stat().st_size > 50_000
 
 
+def test_atlas_3d_ball_produces_h3_cloud():
+    t, coords = _data(dim=32, seed=2)
+    scene = atlas(coords, t.edges(), dim=3, budget=500)
+    assert scene.views == ["ball3d"]
+    cloud = next(o for o in scene.objects if isinstance(o, Cloud))
+    assert cloud.spatial.shape[1] == 3               # H³ spatial coordinates
+    assert "32D → 3D" in scene.hint
+
+
 def test_atlas_from_edge_list_and_2d_input_skips_projection():
     # a 2D embedding needs no projection → no projection note
     t = synth.taxonomy(600, seed=2)

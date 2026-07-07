@@ -24,7 +24,7 @@ export class CloudLayer {
               public k: number, public pointSize: number) {
     const n = spec.spatial.length;
     this.parent = spec.parent ?? new Array(n).fill(-1);
-    this.lorentz = spec.spatial.map(([a, b]) => L.fromSpatial([a, b], k));
+    this.lorentz = spec.spatial.map((s) => L.fromSpatial(s, k));   // 2D or 3D spatial
     this.depth = this.parent.map(() => 0);
     for (let i = 0; i < n; i++) this.depth[i] = this.parent[i] < 0 ? 0 : this.depth[this.parent[i]] + 1;
 

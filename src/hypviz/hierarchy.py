@@ -66,8 +66,10 @@ class Hierarchy:
         'tangent' — plain tangent-space PCA (no privileged radius)."""
         if self.dim <= dim and method != "tree":
             lo = self.coords
-        elif method == "tree":
+        elif method == "tree" and dim == 2:
             lo = self._tree_layout()
+        elif method == "tree":                              # tree layout is 2D-only
+            lo, _ = _reduce.radial_pca(self.coords, dim, self.k, center=self.coords[self.tree.root])
         elif method == "radial":
             lo, _ = _reduce.radial_pca(self.coords, dim, self.k, center=self.coords[self.tree.root])
         elif method == "horo":

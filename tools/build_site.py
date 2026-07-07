@@ -32,6 +32,8 @@ STATIC = {
                    "A real 128-D Poincaré embedding of WordNet 'animal' (3999 synsets), trained with gensim, radius-reduced to 2D."),
     "atlas_centroids": ("Hyperbolic clade centroids (real 128D)",
                         "The same 128-D embedding with each top clade's hyperbolic centroid (Fréchet mean) overlaid as a labeled marker."),
+    "atlas_ball3d": ("H³ Poincaré ball — 3D (real 128D)",
+                     "The real 128-D embedding reduced to 3D and shown in the rotatable Poincaré ball, instead of the 2D disk."),
 }
 
 
