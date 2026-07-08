@@ -29,8 +29,11 @@ def traversal_scene(query, bank, labels, k=-1.0, chart="lorentz", steps=24, angl
         if not seq or seq[-1][1] != name:                     # dedup consecutive retrievals
             seq.append((r, name))
 
+    # schematic radial spoke: place each concept at disk radius ∝ its distance-to-root,
+    # normalized so the query sits near the boundary (robust to the model's curvature scale)
     ca, sa = np.cos(angle), np.sin(angle)
-    disk = lambda r: [np.tanh(r / (2 * R)) * R * ca, np.tanh(r / (2 * R)) * R * sa]
+    r_max = max((r for r, _ in seq), default=1.0) or 1.0
+    disk = lambda r: [0.92 * R * (r / r_max) * ca, 0.92 * R * (r / r_max) * sa]
     root = Point([0.0, 0.0], chart="poincare", label="root", draggable=False, color="#898781")
     cols = colors.by_scalar(np.linspace(1, 0, len(seq)))      # boundary (specific) → center (abstract)
     marks = [Point(disk(r), chart="poincare", label=name, draggable=False,
