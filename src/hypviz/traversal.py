@@ -15,7 +15,6 @@ from .scene import Geodesic, Point, Scene
 def traversal_scene(query, bank, labels, k=-1.0, chart="lorentz", steps=30):
     """Return a Scene of the query→root traversal. `query` is one embedding, `bank` an
     (N, d) array of concept embeddings with `labels`; both in `chart` coordinates."""
-    from . import reduce as _reduce
     q = as_numpy(query)
     q = q if chart == "lorentz" else CHARTS[chart].to_lorentz(q[None], k)[0]
     B = as_numpy(bank)
@@ -28,12 +27,18 @@ def traversal_scene(query, bank, labels, k=-1.0, chart="lorentz", steps=30):
         if not seq or seq[-1] != j:                           # dedup consecutive retrievals
             seq.append(j)
 
-    # a real 2D embedding via radius-preserving PCA: radius = true distance-to-root
-    # (the abstraction axis, exact), angle = PCA of the actual concept embeddings; the
-    # radial SCALE is then normalized so the query fills the disk at any curvature.
-    lo, _ = _reduce.radial_pca(B[seq], 2, k)
-    pb = CHARTS["poincare"].from_lorentz(lo, k)
-    pb = 0.92 / np.sqrt(-k) * pb / (np.linalg.norm(pb[0]) or 1.0)   # query → near the R-radius rim
+    # a faithful 2D embedding centred at the root: keep each concept's exact distance-to-root
+    # (the abstraction axis) and get the angle from an UNCENTERED projection of its tangent
+    # direction — a traversal runs nearly along one radial ray, so near-collinear concepts stay
+    # near one spoke (with their real angular deviations) instead of fanning across the disk.
+    v = L.logmap(o, B[seq], k)
+    r = np.sqrt(np.maximum(L.mdot(v, v, True), 0.0))               # (M,1) distance to root
+    basis = L.tangent_basis(o, k)
+    u = v @ basis.T - 2 * np.outer(v[:, 0], basis[:, 0])          # (M,n) spatial tangent coords, |u|=r
+    ax = np.linalg.svd(u, full_matrices=False)[2][:2]            # top-2 axes ≈ the shared ray first
+    ang = u @ ax.T
+    ang = ang / np.maximum(np.linalg.norm(ang, axis=1, keepdims=True), 1e-12)
+    pb = 0.92 / np.sqrt(-k) * (r / r.max()) * ang                 # fill the R-radius disk; query → rim
     root = Point([0.0, 0.0], chart="poincare", label="root", draggable=False, color="#898781")
     cols = colors.by_scalar(np.linspace(1, 0, len(seq)))      # specific (boundary) → abstract (center)
     marks = [Point(pb[i].tolist(), chart="poincare", label=labels[j], draggable=False,
@@ -43,6 +48,7 @@ def traversal_scene(query, bank, labels, k=-1.0, chart="lorentz", steps=30):
                  legend=[("point", "#2a78d6", "query — most specific (boundary)"),
                          ("point", "#898781", "root — most abstract (center)")],
                  hint=("A MERU-style root traversal: from the query along the geodesic to the root, the nearest "
-                       "concept retrieved at each step grows more abstract. Placed by radius-preserving PCA — "
-                       "radius is the true distance-to-root (specific → abstract), angle is the concepts' real "
-                       "PCA direction (the radial scale is normalized to fill the disk). Drag the 3D view."))
+                       "concept retrieved at each step grows more abstract. Radius is the true distance-to-root "
+                       "(specific → abstract); the angle is a faithful projection of each concept's direction — a "
+                       "traversal is nearly radial, so the concepts stay near one spoke, showing their real angular "
+                       "deviations (the radial scale is normalized to fill the disk). Drag the 3D view."))

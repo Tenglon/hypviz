@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>MERU traversal — “a golden retriever”</title>
+<title>MERU traversal — “a bald eagle”</title>
 <style>
   * { box-sizing: border-box; }
   body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -48,8 +48,8 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>MERU traversal — “a golden retriever”</h1>
-    <p class="hint">A MERU-style root traversal: from the query along the geodesic to the root, the nearest concept retrieved at each step grows more abstract. Placed by radius-preserving PCA — radius is the true distance-to-root (specific → abstract), angle is the concepts' real PCA direction (the radial scale is normalized to fill the disk). Drag the 3D view.</p>
+    <h1>MERU traversal — “a bald eagle”</h1>
+    <p class="hint">A MERU-style root traversal: from the query along the geodesic to the root, the nearest concept retrieved at each step grows more abstract. Radius is the true distance-to-root (specific → abstract); the angle is a faithful projection of each concept's direction — a traversal is nearly radial, so the concepts stay near one spoke, showing their real angular deviations (the radial scale is normalized to fill the disk). Drag the 3D view.</p>
   </header>
   <div id="app"></div>
   <footer>made with hypviz</footer>
@@ -4173,6 +4173,6 @@ three/build/three.module.js:
    *)
 */
 </script>
-<script>HypVizRuntime.mount(document.getElementById("app"), {"views": [{"chart": "poincare"}, {"chart": "lorentz"}], "objects": [{"id": "o4", "type": "geodesic", "from": "o1", "to": "o2", "color": null}, {"id": "o5", "type": "geodesic", "from": "o2", "to": "o3", "color": null}, {"id": "o6", "type": "geodesic", "from": "o3", "to": "o0", "color": null}, {"id": "o0", "type": "point", "spatial": [0.0, 0.0], "draggable": false, "label": "root", "color": "#898781"}, {"id": "o1", "type": "point", "spatial": [-36.54346420676528, 9.978960345625776], "draggable": false, "label": "a golden retriever", "color": "#2a78d6"}, {"id": "o2", "type": "point", "spatial": [2.2466724813132215, -9.702046478235943], "draggable": false, "label": "a dog", "color": "#3987e5"}, {"id": "o3", "type": "point", "spatial": [7.110125850082732, 4.358081776428197], "draggable": false, "label": "a living thing", "color": "#cde2fb"}], "curvature": -0.09999999403953552, "curvatureSlider": false, "densityCurvatures": null, "legend": [{"kind": "point", "color": "#2a78d6", "label": "query \u2014 most specific (boundary)"}, {"kind": "point", "color": "#898781", "label": "root \u2014 most abstract (center)"}]});</script>
+<script>HypVizRuntime.mount(document.getElementById("app"), {"views": [{"chart": "poincare"}, {"chart": "lorentz"}], "objects": [{"id": "o5", "type": "geodesic", "from": "o1", "to": "o2", "color": null}, {"id": "o6", "type": "geodesic", "from": "o2", "to": "o3", "color": null}, {"id": "o7", "type": "geodesic", "from": "o3", "to": "o4", "color": null}, {"id": "o8", "type": "geodesic", "from": "o4", "to": "o0", "color": null}, {"id": "o0", "type": "point", "spatial": [0.0, 0.0], "draggable": false, "label": "root", "color": "#898781"}, {"id": "o1", "type": "point", "spatial": [-34.93372897474969, 14.650563324645024], "draggable": false, "label": "a bald eagle", "color": "#2a78d6"}, {"id": "o2", "type": "point", "spatial": [-8.221148319589833, -0.8630371792886176], "draggable": false, "label": "a bird", "color": "#256abf"}, {"id": "o3", "type": "point", "spatial": [-5.8628882455311055, -2.3518699135369747], "draggable": false, "label": "an animal", "color": "#6da7ec"}, {"id": "o4", "type": "point", "spatial": [-5.301796169708841, -2.702140061848854], "draggable": false, "label": "a living thing", "color": "#cde2fb"}], "curvature": -0.09999999403953552, "curvatureSlider": false, "densityCurvatures": null, "legend": [{"kind": "point", "color": "#2a78d6", "label": "query \u2014 most specific (boundary)"}, {"kind": "point", "color": "#898781", "label": "root \u2014 most abstract (center)"}]});</script>
 </body>
 </html>
