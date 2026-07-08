@@ -49,7 +49,7 @@
 <div class="wrap">
   <header>
     <h1>MERU traversal — “a golden retriever”</h1>
-    <p class="hint">A MERU-style root traversal: from the query at the boundary along the geodesic to the root at the center, the nearest concept retrieved at each step grows more abstract. Retrieval is in the full embedding; the spoke places each concept at its true distance-to-root. Drag the hyperboloid view, scroll to zoom.</p>
+    <p class="hint">A MERU-style root traversal: from the query along the geodesic to the root, the nearest concept retrieved at each step grows more abstract. Placed by radius-preserving PCA — radius is the true distance-to-root (specific → abstract), angle is the concepts' real PCA direction (the radial scale is normalized to fill the disk). Drag the 3D view.</p>
   </header>
   <div id="app"></div>
   <footer>made with hypviz</footer>
@@ -4173,6 +4173,6 @@ three/build/three.module.js:
    *)
 */
 </script>
-<script>HypVizRuntime.mount(document.getElementById("app"), {"views": [{"chart": "poincare"}, {"chart": "lorentz"}], "objects": [{"id": "o4", "type": "geodesic", "from": "o1", "to": "o0", "color": null}, {"id": "o0", "type": "point", "spatial": [0.0, 0.0], "draggable": false, "label": "root", "color": "#898781"}, {"id": "o1", "type": "point", "spatial": [28.973332808937894, 24.4039015682581], "draggable": false, "label": "a golden retriever", "color": "#2a78d6"}, {"id": "o2", "type": "point", "spatial": [2.6393924496592374, 2.2231295918299585], "draggable": false, "label": "a dog", "color": "#3987e5"}, {"id": "o3", "type": "point", "spatial": [1.724522648161827, 1.452545388392126], "draggable": false, "label": "a living thing", "color": "#cde2fb"}], "curvature": -0.09999999403953552, "curvatureSlider": false, "densityCurvatures": null, "legend": [{"kind": "point", "color": "#2a78d6", "label": "query \u2014 most specific (boundary)"}, {"kind": "point", "color": "#898781", "label": "root \u2014 most abstract (center)"}]});</script>
+<script>HypVizRuntime.mount(document.getElementById("app"), {"views": [{"chart": "poincare"}, {"chart": "lorentz"}], "objects": [{"id": "o4", "type": "geodesic", "from": "o1", "to": "o2", "color": null}, {"id": "o5", "type": "geodesic", "from": "o2", "to": "o3", "color": null}, {"id": "o6", "type": "geodesic", "from": "o3", "to": "o0", "color": null}, {"id": "o0", "type": "point", "spatial": [0.0, 0.0], "draggable": false, "label": "root", "color": "#898781"}, {"id": "o1", "type": "point", "spatial": [-36.54346420676528, 9.978960345625776], "draggable": false, "label": "a golden retriever", "color": "#2a78d6"}, {"id": "o2", "type": "point", "spatial": [2.2466724813132215, -9.702046478235943], "draggable": false, "label": "a dog", "color": "#3987e5"}, {"id": "o3", "type": "point", "spatial": [7.110125850082732, 4.358081776428197], "draggable": false, "label": "a living thing", "color": "#cde2fb"}], "curvature": -0.09999999403953552, "curvatureSlider": false, "densityCurvatures": null, "legend": [{"kind": "point", "color": "#2a78d6", "label": "query \u2014 most specific (boundary)"}, {"kind": "point", "color": "#898781", "label": "root \u2014 most abstract (center)"}]});</script>
 </body>
 </html>
