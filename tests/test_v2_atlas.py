@@ -78,6 +78,22 @@ def test_density_heatmaps_renders_all_panels():
     assert len(fig.axes) == 6                        # 4 hyperbolic models + euclidean + cosine
 
 
+def test_traversal_scene_walks_specific_to_abstract():
+    import numpy as np
+
+    from hypviz import synth, traversal_scene
+    from hypviz.scene import Geodesic, Point
+    t = synth.taxonomy(2000, seed=0)
+    coords = synth.diffuse(t, dim=32, k=-1.0, seed=0)
+    leaf = max(range(len(t)), key=lambda i: t.depth()[i])
+    scene = traversal_scene(coords[leaf], coords, [f"n{i}" for i in range(len(t))], chart="lorentz")
+    marks = [o for o in scene.objects if isinstance(o, Point) and o.label != "root"]
+    assert len(marks) >= 2 and any(isinstance(o, Geodesic) for o in scene.objects)
+    # concepts placed at decreasing disk radius: query at the boundary → root at the center
+    radii = [np.linalg.norm(np.asarray(m.coords)) for m in marks]
+    assert radii[0] > radii[-1]
+
+
 def test_density_scene_builds_textured_views():
     from hypviz.scene import DensityField
     _, coords = _data(n=800, dim=16, seed=2)

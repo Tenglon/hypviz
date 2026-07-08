@@ -38,6 +38,8 @@ STATIC = {
                     "The real 128-D embedding reduced with CO-SNE: local neighborhoods form tight clusters (vs the linear methods' ring)."),
     "atlas_density": ("Density under different models & metrics",
                       "The same points' KDE across the four hyperbolic models (isometric — same density, different chart) vs Euclidean and cosine kernels."),
+    "traversal": ("Root traversal (MERU-style)",
+                  "Walk the geodesic from a query toward the root, retrieving the nearest concept at each step — specific at the boundary, abstract at the center."),
 }
 
 
