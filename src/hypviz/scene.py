@@ -172,14 +172,15 @@ class DensityField(_Obj):
     one texture per metric (data URIs). Smooth (bilinear) and zoomable; the metric
     is switchable in the page."""
 
-    def __init__(self, chart, extent, textures, metric, surface=False, points=None):
+    def __init__(self, chart, extent, textures, metric, surface=False, points=None, view=0, curvature=False):
         super().__init__()
         self.chart, self.extent, self.textures, self.metric = chart, list(extent), textures, metric
-        self.surface, self.points = surface, points
+        self.surface, self.points, self.view, self.curvature = surface, points, view, curvature
 
     def to_json(self, k):
         d = {"id": self.id, "type": "density", "chart": self.chart, "extent": self.extent,
-             "textures": self.textures, "metric": self.metric, "surface": self.surface}
+             "textures": self.textures, "metric": self.metric, "surface": self.surface,
+             "view": self.view, "curvature": self.curvature}
         if self.points is not None:
             d["points"] = self.points
         return d
@@ -221,7 +222,7 @@ class Scene:
         self.legend = [{"kind": k, "color": c, "label": l} for k, c, l in legend]  # (kind, color, label)
 
     def to_json(self):
-        return {"views": [{"chart": v} for v in self.views],
+        return {"views": [v if isinstance(v, dict) else {"chart": v} for v in self.views],
                 "objects": [o.to_json(self.curvature) for o in self.objects],
                 "curvature": self.curvature, "curvatureSlider": self.curvature_slider,
                 "densityCurvatures": self.density_curvatures, "legend": self.legend}

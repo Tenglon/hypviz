@@ -173,27 +173,37 @@ def density_scene(coords, chart="poincare", charts=("poincare", "klein", "halfpl
         x = x[rng.choice(len(x), n_points, replace=False)]
     p_unit = CHARTS["poincare"].from_lorentz(x, -1.0)          # fixed unit-disk positions
 
-    objs = []
-    for ch in charts:
+    # each panel is a well-defined (chart, metric): the hyperbolic density in every model
+    # (curvature-controlled), and euclidean/cosine ONLY on the Poincaré disk — those metrics
+    # are not intrinsic, so rendering them in Klein / half-plane coordinates is meaningless.
+    panels = [(ch, "hyperbolic", True) for ch in charts]
+    panels += [("poincare", m, False) for m in metrics if m != "hyperbolic"]
+
+    objs, views = [], []
+    for i, (ch, metric, curv) in enumerate(panels):
         tex_chart = "poincare" if ch == "hyperboloid" else ch  # surface reuses the disk texture via UVs
-        textures, extent = {}, None
-        for kc in curvatures:                                  # hyperbolic kernel at each curvature
-            textures[f"hyperbolic@{kc:g}"], extent = _density_texture(
-                tex_chart, "hyperbolic", CHARTS["poincare"].to_lorentz(p_unit, kc), kc, res)
-        for m in ("euclidean", "cosine"):                      # K-independent, on the unit disk
-            if m in metrics:
-                textures[m], extent = _density_texture(tex_chart, m, x, -1.0, res)
-        # the kernel centers (prototypes) in this chart's coordinates — overlaid on disk charts
+        view_chart = "lorentz" if ch == "hyperboloid" else ch
+        textures, extent, default = {}, None, metric
+        if curv:
+            for kc in curvatures:
+                textures[f"hyperbolic@{kc:g}"], extent = _density_texture(
+                    tex_chart, "hyperbolic", CHARTS["poincare"].to_lorentz(p_unit, kc), kc, res)
+            default = f"hyperbolic@{curvatures[0]:g}"
+        else:
+            textures[metric], extent = _density_texture(tex_chart, metric, x, -1.0, res)
         pts = None if ch == "hyperboloid" else np.round(CHARTS[tex_chart].from_lorentz(x, -1.0), 5).tolist()
-        objs.append(DensityField(ch if ch != "hyperboloid" else "lorentz", extent, textures,
-                                 f"hyperbolic@{curvatures[0]:g}", surface=(ch == "hyperboloid"), points=pts))
-    return Scene(objs, views=[o.chart for o in objs], curvature=-1.0,
+        objs.append(DensityField(view_chart, extent, textures, default,
+                                 surface=(ch == "hyperboloid"), points=pts, view=i, curvature=curv))
+        views.append({"chart": view_chart, "title": f"{ch} · {metric}"})
+
+    return Scene(objs, views=views, curvature=-1.0,
                  density_curvatures=[float(c) for c in curvatures],
                  legend=[("point", "#22d3ee", "prototypes — the kernel centers whose distances form the density")],
-                 hint=("The same points' kernel density in each hyperbolic model (Poincaré / Klein / half-plane / "
+                 hint=("Top row: the same points' HYPERBOLIC density in each model (Poincaré / Klein / half-plane / "
                        "hyperboloid — isometric, so the density is identical; only the chart, hence the appearance, "
-                       "differs). Pick the KERNEL (hyperbolic / euclidean / cosine) and slide the CURVATURE: as "
-                       "K → 0 the hyperbolic density flattens toward the Euclidean one. Scroll to zoom, drag to pan."))
+                       "differs); the CURVATURE slider varies K in [-1, 0), and as K → 0 it flattens toward the "
+                       "Euclidean panel. Bottom: the Euclidean and cosine kernels on the Poincaré disk — those metrics "
+                       "are not intrinsic, so they belong to one chart, not the models. Scroll to zoom, drag to pan."))
 
 
 def density_heatmaps(coords, k=-1.0, chart="poincare", grid=110, n_points=600, seed=0,

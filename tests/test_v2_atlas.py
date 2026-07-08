@@ -84,9 +84,15 @@ def test_density_scene_builds_textured_views():
     scene = stats.density_scene(coords, chart="lorentz", charts=("poincare", "hyperboloid"),
                                 curvatures=(-1.0, -0.5), res=50, n_points=80)
     dfs = [o for o in scene.objects if isinstance(o, DensityField)]
-    assert scene.views == ["poincare", "lorentz"] and len(dfs) == 2   # hyperboloid → lorentz surface view
-    assert set(dfs[0].textures) == {"hyperbolic@-1", "hyperbolic@-0.5", "euclidean", "cosine"}
-    assert dfs[1].surface and dfs[0].textures["hyperbolic@-1"].startswith("data:image/png;base64,")
+    # 2 hyperbolic model panels (curvature-controlled) + euclidean + cosine on the disk
+    assert len(dfs) == 4
+    assert [v["chart"] for v in scene.views] == ["poincare", "lorentz", "poincare", "poincare"]
+    hyp = dfs[0]
+    assert hyp.curvature and set(hyp.textures) == {"hyperbolic@-1", "hyperbolic@-0.5"}
+    assert hyp.textures["hyperbolic@-1"].startswith("data:image/png;base64,")
+    assert dfs[1].surface                                     # hyperboloid → lorentz surface
+    euc = next(o for o in dfs if o.metric == "euclidean")
+    assert not euc.curvature and set(euc.textures) == {"euclidean"}
     assert scene.density_curvatures == [-1.0, -0.5]
 
 

@@ -78,14 +78,14 @@ export class HypView {
   panY = 0;
   private pan?: { sx: number; sy: number; px: number; py: number; moved: boolean };
 
-  constructor(parent: HTMLElement, public chart: ChartKey, public state: SceneState) {
+  constructor(parent: HTMLElement, public chart: ChartKey, public state: SceneState, public index = 0) {
     this.el = document.createElement("div");
     this.el.className = "hypview";
     parent.appendChild(this.el);
     this.el.appendChild(this.renderer.domElement);
     const tag = document.createElement("div");
     tag.className = "viewtag";
-    tag.textContent = chart === "lorentz" ? "lorentz hyperboloid" : `${chart} model`;
+    tag.textContent = state.scene.views[index]?.title ?? (chart === "lorentz" ? "lorentz hyperboloid" : `${chart} model`);
     this.el.appendChild(tag);
     this.scene3.background = new THREE.Color(COLORS.bg);
     this.scene3.add(this.statics);
@@ -102,12 +102,12 @@ export class HypView {
     } else {
       this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
     }
-    this.hasDensity = state.scene.objects.some((o) => o.type === "density" && o.chart === this.chart);
+    this.hasDensity = state.scene.objects.some((o) => o.type === "density" && (o.view ?? 0) === this.index);
     this.setCurvature(state.k);
     for (const o of state.scene.objects) {
       if (o.type === "cloud")
         this.clouds.push(new CloudLayer(this.scene3, o, (x) => this.project(x), this.kNow, this.is3D ? 5 : 6));
-      else if (o.type === "density" && o.chart === this.chart)
+      else if (o.type === "density" && (o.view ?? 0) === this.index)
         this.densities.push(new DensityLayer(this.scene3, o));
     }
 
@@ -583,45 +583,25 @@ export function mount(root: HTMLElement, scene: SceneJSON) {
   });
   bar.append(btn);
   root.before(bar);
-  const views = scene.views.map((v) => new HypView(root, v.chart, state));
+  const views = scene.views.map((v, i) => new HypView(root, v.chart, state, i));
   views.forEach((v) => v.resize()); // re-measure: flex widths settle only once all views exist
-  const density = scene.objects.find((o) => o.type === "density") as { textures: Record<string, string> } | undefined;
-  if (density) {                                          // kernel switch + curvature slider for density
-    const keys = Object.keys(density.textures);
-    const metrics = [...new Set(keys.map((k) => k.split("@")[0]))];
+  if (scene.objects.some((o) => o.type === "density")) {  // curvature slider (hyperbolic panels only) + colorbar
     const curvs = scene.densityCurvatures ?? [-1];
-    let metric = metrics[0], kIdx = 0;
-    const apply = () => {
-      const key = metric === "hyperbolic" ? `hyperbolic@${curvs[kIdx]}` : metric;
-      views.forEach((v) => v.densities.forEach((d) => d.setKey(key)));
-    };
     const bar2 = document.createElement("div");
     bar2.className = "hypctl";
-    bar2.append("kernel ");
-    metrics.forEach((m, i) => {
-      const btn = document.createElement("button");
-      btn.textContent = m;
-      if (i === 0) btn.classList.add("on");
-      btn.addEventListener("click", () => {
-        bar2.querySelectorAll("button").forEach((b) => b.classList.remove("on"));
-        btn.classList.add("on");
-        metric = m;
-        slider.style.opacity = m === "hyperbolic" ? "1" : "0.35";
-        (slider as HTMLInputElement).disabled = m !== "hyperbolic";
-        apply();
-      });
-      bar2.appendChild(btn);
-    });
     const readout = document.createElement("span");
     const slider = document.createElement("input");
     Object.assign(slider, { type: "range", min: "0", max: String(curvs.length - 1), step: "1", value: "0" });
     slider.addEventListener("input", () => {
-      kIdx = +slider.value;
-      readout.textContent = `K = ${(+curvs[kIdx]).toFixed(2)}`;
-      apply();
+      const k = curvs[+slider.value];
+      readout.textContent = `K = ${(+k).toFixed(2)}`;
+      views.forEach((v) => v.densities.forEach((d) => { if (d.spec.curvature) d.setKey(`hyperbolic@${k}`); }));
     });
     readout.textContent = `K = ${(+curvs[0]).toFixed(2)}`;
-    bar2.append("  curvature ", slider, readout);
+    const bar = document.createElement("span");   // magma colorbar
+    bar.style.cssText = "display:inline-block;width:120px;height:11px;border-radius:2px;margin-left:20px;" +
+      "background:linear-gradient(to right,#000004,#1b0c41,#4a0c6b,#781c6d,#a52c60,#cf4446,#ed6925,#fb9b06,#f7d13d,#fcffa4)";
+    bar2.append("hyperbolic curvature ", slider, readout, bar, " low → high density");
     root.before(bar2);
   }
   // shared tooltip + selection broadcast, so clouds in every view stay in sync
