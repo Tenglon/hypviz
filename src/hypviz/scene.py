@@ -227,15 +227,18 @@ class Scene:
                 "curvature": self.curvature, "curvatureSlider": self.curvature_slider,
                 "densityCurvatures": self.density_curvatures, "legend": self.legend}
 
-    def to_html(self, path, title="hypviz"):
-        html = ((_STATIC / "template.html").read_text()
+    def html(self, title="hypviz"):
+        """The self-contained page as a string (inlined runtime + scene)."""
+        return ((_STATIC / "template.html").read_text()
                 .replace("/*TITLE*/", title)
                 .replace("/*HINT*/", self.hint)
                 .replace("/*RUNTIME*/", (_STATIC / "hypviz-runtime.js").read_text())
                 .replace("/*SCENE*/", json.dumps(self.to_json())))
+
+    def to_html(self, path, title="hypviz"):
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(html)
+        path.write_text(self.html(title))
         return path
 
     def to_svg(self, path, view="poincare", state=None, **kw):
