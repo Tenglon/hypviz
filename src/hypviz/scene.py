@@ -172,14 +172,17 @@ class DensityField(_Obj):
     one texture per metric (data URIs). Smooth (bilinear) and zoomable; the metric
     is switchable in the page."""
 
-    def __init__(self, chart, extent, textures, metric, surface=False):
+    def __init__(self, chart, extent, textures, metric, surface=False, points=None):
         super().__init__()
         self.chart, self.extent, self.textures, self.metric = chart, list(extent), textures, metric
-        self.surface = surface
+        self.surface, self.points = surface, points
 
     def to_json(self, k):
-        return {"id": self.id, "type": "density", "chart": self.chart, "extent": self.extent,
-                "textures": self.textures, "metric": self.metric, "surface": self.surface}
+        d = {"id": self.id, "type": "density", "chart": self.chart, "extent": self.extent,
+             "textures": self.textures, "metric": self.metric, "surface": self.surface}
+        if self.points is not None:
+            d["points"] = self.points
+        return d
 
 
 class Cloud(_Obj):

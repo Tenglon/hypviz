@@ -183,10 +183,13 @@ def density_scene(coords, chart="poincare", charts=("poincare", "klein", "halfpl
         for m in ("euclidean", "cosine"):                      # K-independent, on the unit disk
             if m in metrics:
                 textures[m], extent = _density_texture(tex_chart, m, x, -1.0, res)
+        # the kernel centers (prototypes) in this chart's coordinates — overlaid on disk charts
+        pts = None if ch == "hyperboloid" else np.round(CHARTS[tex_chart].from_lorentz(x, -1.0), 5).tolist()
         objs.append(DensityField(ch if ch != "hyperboloid" else "lorentz", extent, textures,
-                                 f"hyperbolic@{curvatures[0]:g}", surface=(ch == "hyperboloid")))
+                                 f"hyperbolic@{curvatures[0]:g}", surface=(ch == "hyperboloid"), points=pts))
     return Scene(objs, views=[o.chart for o in objs], curvature=-1.0,
                  density_curvatures=[float(c) for c in curvatures],
+                 legend=[("point", "#22d3ee", "prototypes — the kernel centers whose distances form the density")],
                  hint=("The same points' kernel density in each hyperbolic model (Poincaré / Klein / half-plane / "
                        "hyperboloid — isometric, so the density is identical; only the chart, hence the appearance, "
                        "differs). Pick the KERNEL (hyperbolic / euclidean / cosine) and slide the CURVATURE: as "

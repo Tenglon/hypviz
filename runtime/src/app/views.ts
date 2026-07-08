@@ -159,9 +159,9 @@ export class HypView {
     const R = this.R, D = domain(k);
     this.statics.clear();
     this.surface = undefined;
-    if (this.chart === "lorentz" && this.hasDensity) {        // density surface is the content — no default statics
-      this.camera.position.set(2.4, -2.4, 1.7);
-      this.controls!.target.set(0, 0, 0.4);
+    if (this.chart === "lorentz" && this.hasDensity) {        // density surface is the content — frame the whole bowl
+      this.camera.position.set(5, -6.5, 5);
+      this.controls!.target.set(0, 0, 1.4);
       return;
     }
     if (this.chart === "ball3d") {                            // H³ Poincaré ball: boundary sphere only
@@ -552,10 +552,11 @@ export function mount(root: HTMLElement, scene: SceneJSON) {
   // legend: scene-specific entries + the standard geometry, identity never color-alone
   const legend = document.createElement("div");
   legend.className = "hyplegend";
-  const entries: LegendEntry[] = [...(scene.legend ?? []),
+  const geom: LegendEntry[] = scene.objects.some((o) => o.type === "density") ? [] : [
     { kind: "line", color: COLORS.grid, label: "distance grid (0.5 apart)" },
     { kind: "circle", color: COLORS.rim, label: "3D-window edge" },
     { kind: "circle", color: COLORS.boundary, label: "ideal boundary (∞)" }];
+  const entries: LegendEntry[] = [...(scene.legend ?? []), ...geom];
   for (const { kind, color, label } of entries) {
     const item = document.createElement("span");
     item.className = "item";
