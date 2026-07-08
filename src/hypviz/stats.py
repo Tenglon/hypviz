@@ -132,24 +132,23 @@ def _density_field(chart, metric, pts_lorentz, k, grid):
             d = np.sqrt(np.sum((g[:, None] - pp[None]) ** 2, -1))
         dens[s:s + 4000] = np.exp(-(d**2) / (2 * _BW[metric] ** 2)).sum(1)
     field = np.full(len(C), np.nan)
-    field[valid] = dens / dens.max()
+    field[valid] = dens                                        # RAW density (caller normalizes)
     return field.reshape(grid, grid), extent
 
 
-def _density_texture(chart, metric, pts, k, res):
-    """Render the density field to a magma RGBA PNG data URI (transparent outside the
-    chart), plus the extent — for the interactive textured density view."""
+def _field_to_uri(field, vmax):
+    """Render a raw density field to a magma RGBA PNG data URI, normalized by `vmax`
+    (a shared max makes brightness comparable across panels)."""
     import base64
     from io import BytesIO
 
     import matplotlib as mpl
 
-    field, extent = _density_field(chart, metric, pts, k, res)
-    rgba = mpl.colormaps["magma"](np.nan_to_num(field, nan=0.0))
+    rgba = mpl.colormaps["magma"](np.clip(np.nan_to_num(field / vmax, nan=0.0), 0, 1))
     rgba[..., 3] = np.where(np.isnan(field), 0.0, 1.0)
     buf = BytesIO()
     mpl.image.imsave(buf, rgba[::-1], format="png")            # flip rows → texture orientation
-    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode(), list(extent)
+    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
 
 
 def density_scene(coords, chart="poincare", charts=("poincare", "klein", "halfplane", "hyperboloid"),
@@ -179,20 +178,27 @@ def density_scene(coords, chart="poincare", charts=("poincare", "klein", "halfpl
     panels = [(ch, "hyperbolic", True) for ch in charts]
     panels += [("poincare", m, False) for m in metrics if m != "hyperbolic"]
 
+    # pass 1: raw density fields per panel/key; pass 2: normalize by a per-metric shared max
+    # (all hyperbolic panels — 4 models × every curvature — share ONE scale, so the colorbar is
+    #  meaningful and the curvature slide shows real brightness change; each other metric its own).
+    raw, extents, vmax = {}, {}, {}
+    for i, (ch, metric, curv) in enumerate(panels):
+        tex_chart = "poincare" if ch == "hyperboloid" else ch
+        keys = [(f"hyperbolic@{kc:g}", "hyperbolic", CHARTS["poincare"].to_lorentz(p_unit, kc), kc)
+                for kc in curvatures] if curv else [(metric, metric, x, -1.0)]
+        for key, m, pts_l, kc in keys:
+            field, extents[i] = _density_field(tex_chart, m, pts_l, kc, res)
+            raw[(i, key)] = field
+            vmax[m] = max(vmax.get(m, 0.0), np.nanmax(field))
+
     objs, views = [], []
     for i, (ch, metric, curv) in enumerate(panels):
-        tex_chart = "poincare" if ch == "hyperboloid" else ch  # surface reuses the disk texture via UVs
         view_chart = "lorentz" if ch == "hyperboloid" else ch
-        textures, extent, default = {}, None, metric
-        if curv:
-            for kc in curvatures:
-                textures[f"hyperbolic@{kc:g}"], extent = _density_texture(
-                    tex_chart, "hyperbolic", CHARTS["poincare"].to_lorentz(p_unit, kc), kc, res)
-            default = f"hyperbolic@{curvatures[0]:g}"
-        else:
-            textures[metric], extent = _density_texture(tex_chart, metric, x, -1.0, res)
+        tex_chart = "poincare" if ch == "hyperboloid" else ch
+        textures = {key: _field_to_uri(f, vmax[key.split("@")[0]]) for (j, key), f in raw.items() if j == i}
+        default = f"hyperbolic@{curvatures[0]:g}" if curv else metric
         pts = None if ch == "hyperboloid" else np.round(CHARTS[tex_chart].from_lorentz(x, -1.0), 5).tolist()
-        objs.append(DensityField(view_chart, extent, textures, default,
+        objs.append(DensityField(view_chart, extents[i], textures, default,
                                  surface=(ch == "hyperboloid"), points=pts, view=i, curvature=curv))
         views.append({"chart": view_chart, "title": f"{ch} · {metric}"})
 
@@ -201,9 +207,10 @@ def density_scene(coords, chart="poincare", charts=("poincare", "klein", "halfpl
                  legend=[("point", "#22d3ee", "prototypes — the kernel centers whose distances form the density")],
                  hint=("Top row: the same points' HYPERBOLIC density in each model (Poincaré / Klein / half-plane / "
                        "hyperboloid — isometric, so the density is identical; only the chart, hence the appearance, "
-                       "differs); the CURVATURE slider varies K in [-1, 0), and as K → 0 it flattens toward the "
-                       "Euclidean panel. Bottom: the Euclidean and cosine kernels on the Poincaré disk — those metrics "
-                       "are not intrinsic, so they belong to one chart, not the models. Scroll to zoom, drag to pan."))
+                       "differs). The four share ONE color scale (and it holds across the CURVATURE slider, K in "
+                       "[-1, 0)), so their brightness is comparable and the flattening as K → 0 is real. Bottom: the "
+                       "Euclidean and cosine kernels on the Poincaré disk — non-intrinsic metrics, each on its own "
+                       "scale (they don't change with curvature). Scroll to zoom, drag to pan."))
 
 
 def density_heatmaps(coords, k=-1.0, chart="poincare", grid=110, n_points=600, seed=0,
@@ -243,7 +250,7 @@ def density_heatmaps(coords, k=-1.0, chart="poincare", grid=110, n_points=600, s
             continue
         field, extent = _density_field(ch, metric, x, k, grid)
         ax = fig.add_subplot(rows, cols, i + 1)
-        ax.imshow(field, origin="lower", extent=extent, cmap="magma", vmin=0, vmax=1, aspect="auto")
+        ax.imshow(field / np.nanmax(field), origin="lower", extent=extent, cmap="magma", vmin=0, vmax=1, aspect="auto")
         if ch == "halfplane":
             ax.axhline(0, color="#898781", lw=1)                  # x-axis = ideal boundary
         else:
