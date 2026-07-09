@@ -21,24 +21,22 @@ def traversal_scene(query, bank, labels, k=-1.0, chart="lorentz", steps=30):
     B = B if chart == "lorentz" else CHARTS[chart].to_lorentz(B, k)
     labels, o = list(labels), L.origin(B.shape[-1] - 1, k)
 
-    seq = []                                                   # bank indices retrieved along the walk
+    # walk query→root, retrieving the nearest concept per step; keep a step only when it is
+    # meaningfully more abstract than the last (drops near-duplicate & noisy retrievals)
+    rq = float(L.dist(q[None], o, k))                          # query's distance to root
+    seq, kept_r = [], rq + 1.0
     for t in np.linspace(0, 1, steps):
         j = int(np.argmin(L.dist(L.geodesic(q, o, t, k)[None], B, k)))
-        if not seq or seq[-1] != j:                           # dedup consecutive retrievals
+        rj = float(L.dist(B[j][None], o, k))
+        if not seq or (j != seq[-1] and kept_r - rj > 0.06 * rq):
             seq.append(j)
+            kept_r = rj
 
-    # a faithful 2D embedding centred at the root: keep each concept's exact distance-to-root
-    # (the abstraction axis) and get the angle from an UNCENTERED projection of its tangent
-    # direction — a traversal runs nearly along one radial ray, so near-collinear concepts stay
-    # near one spoke (with their real angular deviations) instead of fanning across the disk.
-    v = L.logmap(o, B[seq], k)
-    r = np.sqrt(np.maximum(L.mdot(v, v, True), 0.0))               # (M,1) distance to root
-    basis = L.tangent_basis(o, k)
-    u = v @ basis.T - 2 * np.outer(v[:, 0], basis[:, 0])          # (M,n) spatial tangent coords, |u|=r
-    ax = np.linalg.svd(u, full_matrices=False)[2][:2]            # top-2 axes ≈ the shared ray first
-    ang = u @ ax.T
-    ang = ang / np.maximum(np.linalg.norm(ang, axis=1, keepdims=True), 1e-12)
-    pb = 0.92 / np.sqrt(-k) * (r / r.max()) * ang                 # fill the R-radius disk; query → rim
+    # a traversal is a 1-D radial walk (specific → abstract), so string the concepts along a
+    # single geodesic spoke: distance from the centre is the true distance-to-root; the angle
+    # is layout only. Radial scale normalized so the query sits at the rim, at any curvature.
+    r = L.dist(B[seq], o, k)                                   # (M,) distance-to-root, decreasing
+    pb = (0.92 / np.sqrt(-k) / r.max()) * np.outer(r, [np.cos(0.9), np.sin(0.9)])
     root = Point([0.0, 0.0], chart="poincare", label="root", draggable=False, color="#898781")
     cols = colors.by_scalar(np.linspace(1, 0, len(seq)))      # specific (boundary) → abstract (center)
     marks = [Point(pb[i].tolist(), chart="poincare", label=labels[j], draggable=False,
@@ -47,8 +45,8 @@ def traversal_scene(query, bank, labels, k=-1.0, chart="lorentz", steps=30):
     return Scene([*edges, root, *marks], views=("poincare", "lorentz"), curvature=k,
                  legend=[("point", "#2a78d6", "query — most specific (boundary)"),
                          ("point", "#898781", "root — most abstract (center)")],
-                 hint=("A MERU-style root traversal: from the query along the geodesic to the root, the nearest "
-                       "concept retrieved at each step grows more abstract. Radius is the true distance-to-root "
-                       "(specific → abstract); the angle is a faithful projection of each concept's direction — a "
-                       "traversal is nearly radial, so the concepts stay near one spoke, showing their real angular "
-                       "deviations (the radial scale is normalized to fill the disk). Drag the 3D view."))
+                 hint=("A MERU-style root traversal: from the query at the boundary along the geodesic to the root "
+                       "at the centre, the nearest concept retrieved at each step grows more abstract. A traversal "
+                       "is a 1-D radial walk, so the concepts are strung along a single geodesic spoke — distance "
+                       "from the centre is the true distance-to-root (specific → abstract); the angle is layout only. "
+                       "Both charts show the same walk; drag the hyperboloid."))
