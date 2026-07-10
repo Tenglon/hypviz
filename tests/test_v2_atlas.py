@@ -94,6 +94,23 @@ def test_traversal_scene_walks_specific_to_abstract():
     assert radii[0] > radii[-1]
 
 
+def test_traversal_gallery_packs_switchable_variants():
+    from hypviz import synth, traversal_gallery
+    t = synth.taxonomy(2000, seed=0)
+    coords = synth.diffuse(t, dim=32, k=-1.0, seed=0)
+    leaves = sorted(range(len(t)), key=lambda i: t.depth()[i])[-3:]
+    labels = [f"n{i}" for i in range(len(t))]
+    scene = traversal_gallery([(f"q{i}", coords[i]) for i in leaves], coords, labels, chart="lorentz")
+    j = scene.to_json()
+    assert [v["label"] for v in j["variants"]] == [f"q{i}" for i in leaves]
+    assert all(v["objects"] for v in j["variants"])                # each walk has its own objects
+    assert j["objects"][0]["id"] == j["variants"][0]["objects"][0]["id"]   # base = first variant
+    # variants carry distinct point ids (independent object sets)
+    ids0 = {o["id"] for o in j["variants"][0]["objects"]}
+    ids1 = {o["id"] for o in j["variants"][1]["objects"]}
+    assert ids0.isdisjoint(ids1)
+
+
 def test_density_scene_builds_textured_views():
     from hypviz.scene import DensityField
     _, coords = _data(n=800, dim=16, seed=2)

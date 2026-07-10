@@ -214,18 +214,23 @@ class Cloud(_Obj):
 
 class Scene:
     def __init__(self, objects, views=("poincare", "lorentz"), curvature=-1.0, curvature_slider=False,
-                 hint=None, legend=(), density_curvatures=None):
+                 hint=None, legend=(), density_curvatures=None, variants=None):
         self.objects, self.views = list(objects), list(views)
         self.curvature, self.curvature_slider = curvature, curvature_slider
         self.density_curvatures = density_curvatures
+        self.variants = variants                        # optional [(label, [objects]), ...] for a picker
         self.hint = hint or _DEFAULT_HINT
         self.legend = [{"kind": k, "color": c, "label": l} for k, c, l in legend]  # (kind, color, label)
 
     def to_json(self):
-        return {"views": [v if isinstance(v, dict) else {"chart": v} for v in self.views],
-                "objects": [o.to_json(self.curvature) for o in self.objects],
-                "curvature": self.curvature, "curvatureSlider": self.curvature_slider,
-                "densityCurvatures": self.density_curvatures, "legend": self.legend}
+        d = {"views": [v if isinstance(v, dict) else {"chart": v} for v in self.views],
+             "objects": [o.to_json(self.curvature) for o in self.objects],
+             "curvature": self.curvature, "curvatureSlider": self.curvature_slider,
+             "densityCurvatures": self.density_curvatures, "legend": self.legend}
+        if self.variants:
+            d["variants"] = [{"label": lbl, "objects": [o.to_json(self.curvature) for o in objs]}
+                             for lbl, objs in self.variants]
+        return d
 
     def html(self, title="hypviz"):
         """The self-contained page as a string (inlined runtime + scene)."""

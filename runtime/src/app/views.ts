@@ -365,6 +365,35 @@ export class HypView {
       l.div.textContent = text;
       l.world.copy(this.project(at));
     }
+    this.gc(d);
+  }
+
+  /** Drop meshes/labels for ids no longer in the derived scene (after a variant swap). */
+  private gc(d: Derived) {
+    const drop = (map: Map<string, THREE.Object3D>, live: Map<string, unknown>, labelKey?: (id: string) => string) => {
+      for (const [id, obj] of map)
+        if (!live.has(id)) {
+          this.scene3.remove(obj);
+          (obj as THREE.Mesh).geometry?.dispose?.();
+          map.delete(id);
+          const key = labelKey?.(id), lbl = key && this.labels.get(key);
+          if (key && lbl) { lbl.div.remove(); this.labels.delete(key); }
+        }
+    };
+    drop(this.spheres, d.points, (id) => `pt:${id}`);
+    drop(this.lines, d.curves);
+    drop(this.planes, d.planes);
+    drop(this.regions, d.regions);
+    drop(this.tcircles, d.tcircles);
+    for (const [id, ar] of this.arrows)
+      if (!d.arrows.has(id)) {
+        this.scene3.remove(ar.line, ar.cone);
+        ar.line.geometry.dispose();
+        ar.cone.geometry.dispose();
+        this.arrows.delete(id);
+      }
+    for (const [key, lbl] of this.labels)             // non-point labels whose source object is gone
+      if (!key.startsWith("pt:") && !d.labels.has(key)) { lbl.div.remove(); this.labels.delete(key); }
   }
 
   frame() {
@@ -548,6 +577,17 @@ export function mount(root: HTMLElement, scene: SceneJSON) {
       readout.textContent = `K = ${state.k.toFixed(2)}`;
     });
     bar.append("curvature ", input, readout);
+  }
+  if (scene.variants && scene.variants.length > 1) {   // switch between precomputed traversals
+    const sel = document.createElement("select");
+    scene.variants.forEach((v, i) => {
+      const opt = document.createElement("option");
+      opt.value = String(i);
+      opt.textContent = v.label;
+      sel.appendChild(opt);
+    });
+    sel.addEventListener("change", () => state.setObjects(scene.variants![+sel.value].objects));
+    bar.append("input ", sel);
   }
   // legend: scene-specific entries + the standard geometry, identity never color-alone
   const legend = document.createElement("div");

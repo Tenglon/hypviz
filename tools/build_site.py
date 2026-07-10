@@ -41,7 +41,7 @@ STATIC = {
     "traversal": ("Root traversal (WordNet)",
                   "Walk the geodesic from a query toward the root, retrieving the nearest concept at each step — specific at the boundary, abstract at the center."),
     "meru_traversal": ("Root traversal — real MERU model",
-                       "A golden retriever → a dog → a living thing: the real MERU (Desai et al. 2023) image/text encoder, walked from the embedding to the root."),
+                       "Five real MERU (Desai et al. 2023) walks with a picker: switch inputs (a bald eagle → a bird → an animal → root) and watch the whole traversal recompute."),
 }
 
 

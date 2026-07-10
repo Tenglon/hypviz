@@ -20,7 +20,7 @@ export type DensityJSON = { id: string; type: "density"; chart: string; extent: 
 export type ObjJSON = PointJSON | GeodesicJSON | DistanceLabelJSON | LogVectorJSON | MobiusSumJSON | TangentPlaneJSON | MetricCircleJSON | TransportLoopJSON | GyroplaneJSON | EntailmentConeJSON | CloudJSON | DensityJSON;
 export type ChartKey = "poincare" | "klein" | "halfplane" | "hemisphere" | "lorentz" | "ball3d";
 export type LegendEntry = { kind: "line" | "arrow" | "point" | "circle" | "area"; color: string; label: string };
-export type SceneJSON = { views: { chart: ChartKey; title?: string }[]; objects: ObjJSON[]; curvature?: number; curvatureSlider?: boolean; densityCurvatures?: number[]; legend?: LegendEntry[] };
+export type SceneJSON = { views: { chart: ChartKey; title?: string }[]; objects: ObjJSON[]; curvature?: number; curvatureSlider?: boolean; densityCurvatures?: number[]; legend?: LegendEntry[]; variants?: { label: string; objects: ObjJSON[] }[] };
 
 /** Everything a view needs to draw, all in Lorentz hub coordinates. */
 export interface Derived {
@@ -59,6 +59,14 @@ export class SceneState {
 
   setCurvature(k: number) {
     this.scene.curvature = k;
+    this.notify();
+  }
+
+  /** Swap the whole object layer (used to switch between precomputed variants). */
+  setObjects(objects: ObjJSON[]) {
+    this.scene.objects = objects;
+    this.spatial = new Map();
+    for (const o of objects) if (o.type === "point") this.spatial.set(o.id, o.spatial);
     this.notify();
   }
 
